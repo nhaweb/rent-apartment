@@ -74,11 +74,13 @@ export default defineConfig({
       // --- Auth (Better Auth, landlords only) ---
       BETTER_AUTH_SECRET: envField.string({ context: 'server', access: 'secret', min: 32 }),
       // Extra hosts allowed to serve auth, comma separated (e.g. a custom
-      // preview domain). Vercel's VERCEL_URL / VERCEL_BRANCH_URL are added
+      // preview domain). Vercel's VERCEL_URL / VERCEL_BRANCH_URL /
+      // VERCEL_PROJECT_PRODUCTION_URL are added
       // automatically.
       BETTER_AUTH_ALLOWED_HOSTS: envField.string({ context: 'server', access: 'secret', optional: true }),
       VERCEL_URL: envField.string({ context: 'server', access: 'secret', optional: true }),
       VERCEL_BRANCH_URL: envField.string({ context: 'server', access: 'secret', optional: true }),
+      VERCEL_PROJECT_PRODUCTION_URL: envField.string({ context: 'server', access: 'secret', optional: true }),
       // Header that carries the real client IP for rate limiting. Set
       // `fly-client-ip` on Fly.io. Unset: Astro's clientAddress (correct on
       // Vercel and in local dev).

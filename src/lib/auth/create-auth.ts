@@ -27,6 +27,8 @@ export interface CreateAuthOptions {
   baseURL: string;
   /** Other hosts this deployment answers on (Vercel preview URLs). */
   extraHosts?: string[];
+  /** Trust allowed hosts as `https://` origins even if `baseURL` is http (app behind HTTPS). */
+  forceHttps?: boolean;
   production: boolean;
   sendResetPasswordEmail: (email: ResetPasswordEmail) => Promise<void>;
   sendVerificationEmail: (email: ResetPasswordEmail) => Promise<void>;
@@ -90,6 +92,7 @@ export function createAuth({
   secret,
   baseURL,
   extraHosts = [],
+  forceHttps = false,
   production,
   sendResetPasswordEmail,
   sendVerificationEmail,
@@ -100,11 +103,12 @@ export function createAuth({
     secret,
     // Dynamic base URL: answer on the canonical host and on each allowed
     // preview host; anything else falls back to the canonical URL. The
-    // protocol comes from the canonical URL because the app sits behind a
-    // TLS-terminating proxy on both platforms.
+    // protocol comes from the canonical URL (or `forceHttps`) because the app
+    // sits behind a TLS-terminating proxy on both platforms. It also decides
+    // which scheme the allowed hosts are trusted with as origins.
     baseURL: {
       allowedHosts: [...new Set([canonical.host, ...extraHosts])],
-      protocol: canonical.protocol === 'https:' ? 'https' : 'http',
+      protocol: forceHttps || canonical.protocol === 'https:' ? 'https' : 'http',
       fallback: canonical.origin,
     },
     // HTTP endpoints the app does not use. Profile edits would change

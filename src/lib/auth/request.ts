@@ -100,6 +100,10 @@ export async function callAuthEndpoint<T = unknown>(
 
   if (!response.ok) {
     if (response.status >= 500) console.error(`[auth] ${path} returned ${response.status}`, data);
+    // 403 is a config problem (untrusted origin, disabled path), not a user mistake.
+    else if (response.status === 403) {
+      console.error(`[auth] ${path} returned 403`, data?.code, 'origin:', headers.get('origin'));
+    }
     return {
       ok: false,
       status: response.status,
