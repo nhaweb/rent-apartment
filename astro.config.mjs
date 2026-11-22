@@ -11,9 +11,11 @@ import react from '@astrojs/react';
 
 /**
  * Adapter per deploy target (CLAUDE.md "Deploy"): `node` (Fly.io, default)
- * or `vercel` (test / preview). Read at build time.
+ * or `vercel` (test / preview). Read at build time. Vercel sets `VERCEL=1` in
+ * its builds, so the Vercel adapter is picked there even without DEPLOY_TARGET
+ * (with the node adapter Vercel finds no output and answers 404 NOT_FOUND).
  */
-const deployTarget = process.env.DEPLOY_TARGET ?? 'node';
+const deployTarget = process.env.DEPLOY_TARGET || (process.env.VERCEL ? 'vercel' : 'node');
 if (deployTarget !== 'node' && deployTarget !== 'vercel') {
   throw new Error(`DEPLOY_TARGET must be "node" or "vercel", got "${deployTarget}".`);
 }
