@@ -2,19 +2,21 @@
  * Fixed one-hour window per subject, stored in Postgres (no in-memory state:
  * Vercel runs many instances). The key is a hash of the subject, never the
  * value itself. Scopes and their subjects:
- * - `chat`, `contact`: client IP (chat assistant, renter contact form)
+ * - `chat`, `contact`, `phone`, `zalo`: client IP (chat assistant, renter contact form, "Gọi điện" and "Nhắn Zalo" redirects)
  * - `upload`: landlord id (presigned photo upload URLs, counted per URL)
  * Each scope has its own table with the same columns (`key`, `window_start`, `count`).
  */
 import { BETTER_AUTH_SECRET } from 'astro:env/server';
 import { sql } from 'drizzle-orm';
 import { db } from './db/client';
-import { chatRateLimits, contactRateLimits, uploadRateLimits } from './db/schema';
+import { chatRateLimits, contactRateLimits, phoneRateLimits, uploadRateLimits, zaloRateLimits } from './db/schema';
 
 const LIMITS = {
   chat: chatRateLimits,
   contact: contactRateLimits,
   upload: uploadRateLimits,
+  phone: phoneRateLimits,
+  zalo: zaloRateLimits,
 } as const;
 
 export type RateLimitScope = keyof typeof LIMITS;

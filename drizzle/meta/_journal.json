@@ -78,6 +78,20 @@
       "when": 1795369896254,
       "tag": "0010_email_send_counts",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1795373363220,
+      "tag": "0011_zalo_opt_in",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1795373868837,
+      "tag": "0012_phone_rate_limits",
+      "breakpoints": true
     }
   ]
 }

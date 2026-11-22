@@ -114,6 +114,10 @@ export default defineConfig({
       // --- Renter contact form ---
       // Requests per client IP per hour (all rooms together).
       CONTACT_RATE_LIMIT_PER_HOUR: envField.number({ context: 'server', access: 'secret', default: 5, int: true, gt: 0 }),
+      // "Gọi điện" redirects (`/phong/[id]/goi` → tel:) per client IP per hour (all rooms together).
+      PHONE_RATE_LIMIT_PER_HOUR: envField.number({ context: 'server', access: 'secret', default: 30, int: true, gt: 0 }),
+      // "Nhắn Zalo" redirects (`/phong/[id]/zalo`) per client IP per hour (all rooms together).
+      ZALO_RATE_LIMIT_PER_HOUR: envField.number({ context: 'server', access: 'secret', default: 30, int: true, gt: 0 }),
     },
   },
 

@@ -37,14 +37,17 @@ const ul = 'mt-3 list-disc space-y-2 pl-5 text-ink';
     <p class={p}><span class="font-medium">Chủ phòng</span>, khi đăng ký và đăng tin:</p>
     <ul class={ul}>
       <li>Họ tên, email, số điện thoại, số Zalo (nếu có) và mật khẩu (chỉ lưu dạng đã mã hóa một chiều).</li>
+      <li>
+        Nếu bạn chọn "Cho người thuê nhắn Zalo cho tôi từ trang phòng": lựa chọn đó và thời điểm bạn đồng ý.
+      </li>
       <li>Thông tin và ảnh phòng do bạn đăng. Ảnh được nén lại ngay trên trình duyệt, việc này xóa thông tin EXIF/GPS trong ảnh.</li>
       <li>Phiên đăng nhập: địa chỉ IP và loại trình duyệt của từng thiết bị đang đăng nhập.</li>
     </ul>
     <p class={p}><span class="font-medium">Mọi người truy cập:</span></p>
     <ul class={ul}>
       <li>
-        Để chống spam, chúng tôi đếm số lần gửi yêu cầu và dùng trợ lý tìm phòng theo địa chỉ IP. IP chỉ được lưu dưới
-        dạng mã băm, không lưu IP gốc.
+        Để chống spam, chúng tôi đếm số lần gửi yêu cầu, bấm nút gọi điện, bấm nút Zalo và dùng trợ lý tìm phòng theo địa chỉ IP. IP chỉ
+        được lưu dưới dạng mã băm, không lưu IP gốc.
       </li>
       <li>
         Nội dung trò chuyện với trợ lý tìm phòng không được lưu trên máy chủ của chúng tôi. Lịch sử chỉ nằm trong trình
@@ -56,7 +59,23 @@ const ul = 'mt-3 list-disc space-y-2 pl-5 text-ink';
     <h2 class={h2}>2. Mục đích sử dụng</h2>
     <ul class={ul}>
       <li>Chuyển yêu cầu xem phòng của người thuê tới đúng chủ phòng (hiện trong trang quản lý và gửi qua email).</li>
-      <li>Hiển thị tin đăng phòng. Thông tin liên hệ của chủ phòng không hiện công khai.</li>
+      <li>
+        Hiển thị tin đăng phòng. Email của chủ phòng không hiện công khai.
+      </li>
+      <li>
+        Nút "Gọi điện" trên mọi phòng còn trống: người thuê bấm vào sẽ được chuyển sang ứng dụng gọi điện với số điện
+        thoại chủ phòng đã đăng ký, để liên hệ xem phòng. Số không được ghi trên trang; để hạn chế việc thu thập số hàng
+        loạt, mỗi địa chỉ IP chỉ được bấm một số lần trong một giờ. Khi phòng được đánh dấu đã cho thuê, bị ẩn hoặc bị
+        xóa, nút này biến mất. Chủ phòng đổi số ở trang <a href="/quan-ly/tai-khoan" class="link">Tài khoản</a>.
+      </li>
+      <li>
+        Nút "Nhắn Zalo" (chỉ khi chủ phòng tự bật): giúp người thuê liên hệ nhanh với chủ phòng. Khi bật, trang phòng
+        còn trống của bạn có thêm nút Zalo; người thuê bấm vào sẽ được chuyển sang Zalo để nhắn cho số Zalo bạn đã nhập,
+        và từ đó họ thấy số này cùng hồ sơ Zalo của bạn. Số Zalo không được ghi trên trang. Để hạn chế việc thu thập số
+        hàng loạt, mỗi địa chỉ IP chỉ được bấm một số lần trong một giờ. Bạn tắt bất cứ lúc nào bằng cách bỏ chọn ở trang
+        <a href="/quan-ly/tai-khoan" class="link">Tài khoản</a> (hoặc xóa số Zalo); nút biến mất ngay. Người thuê đã nhắn
+        cho bạn trước đó vẫn giữ cuộc trò chuyện trên Zalo.
+      </li>
       <li>Đăng nhập, xác thực email, đặt lại mật khẩu và bảo vệ tài khoản.</li>
       <li>Chống spam và lạm dụng.</li>
     </ul>
@@ -65,6 +84,11 @@ const ul = 'mt-3 list-disc space-y-2 pl-5 text-ink';
     <h2 class={h2}>3. Ai nhận được dữ liệu</h2>
     <ul class={ul}>
       <li>Chủ phòng nhận họ tên, số điện thoại và lời nhắn trong yêu cầu bạn gửi cho phòng của họ.</li>
+      <li>
+        Người thuê bấm nút "Gọi điện" nhận số điện thoại của chủ phòng (trong ứng dụng gọi điện của họ). Người thuê
+        bấm nút "Nhắn Zalo" nhận số Zalo của chủ phòng đã bật mục này (qua Zalo). Cuộc trò chuyện sau đó diễn
+        ra trên Zalo, theo chính sách của Zalo; chúng tôi không đọc hay lưu nội dung đó.
+      </li>
       <li>
         Các nhà cung cấp hạ tầng xử lý dữ liệu thay chúng tôi: Neon (cơ sở dữ liệu), Cloudflare R2 (lưu ảnh), Google Gmail hoặc Resend
         (gửi email), Google Gemini (trợ lý tìm phòng: chỉ nhận nội dung bạn gõ vào khung trò chuyện), Vercel và Fly.io

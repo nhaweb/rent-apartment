@@ -1,0 +1,69 @@
+---
+/**
+ * "Cho người thuê nhắn Zalo cho tôi từ trang phòng": the explicit opt-in for
+ * the "Nhắn Zalo" button on the landlord's room pages (`landlords.zalo_public_at`).
+ * Used on `/dang-ky` (unchecked) and `/quan-ly/tai-khoan`.
+ *
+ * Posts `zaloPublic` (absent when unchecked). With JS the checkbox is enabled
+ * only while the Zalo field (`zaloInputId`) has a value, and unchecked when it
+ * is cleared; without JS the server refuses it without a number
+ * (`ZALO_PUBLIC_NEEDS_NUMBER`).
+ */
+interface Props {
+  id: string;
+  /** Id of the "Số Zalo" input this depends on. */
+  zaloInputId: string;
+  checked?: boolean;
+  error?: string;
+}
+
+const { id, zaloInputId, checked = false, error } = Astro.props;
+const hintId = `${id}-hint`;
+const errorId = error ? `${id}-error` : undefined;
+---
+
+<zalo-opt-in data-zalo-input={zaloInputId} class="block">
+  <label for={id} class="flex items-start gap-3">
+    <input
+      id={id}
+      type="checkbox"
+      name="zaloPublic"
+      checked={checked}
+      aria-invalid={error ? 'true' : undefined}
+      aria-describedby={[hintId, errorId].filter(Boolean).join(' ')}
+      class="peer mt-0.5 size-5 shrink-0 accent-accent"
+    />
+    <span class="text-small font-medium text-ink peer-disabled:text-muted">Cho người thuê nhắn Zalo cho tôi từ trang phòng</span>
+  </label>
+  <p id={hintId} class="mt-1 pl-8 text-small text-muted">
+    Trang phòng có thêm nút Zalo mở thẳng cuộc trò chuyện với bạn. Số Zalo không hiện trên trang. Bỏ chọn bất cứ lúc
+    nào để tắt.
+  </p>
+  {error && <p id={errorId} class="mt-1.5 pl-8 text-small text-danger">{error}</p>}
+</zalo-opt-in>
+
+<script>
+  class ZaloOptIn extends HTMLElement {
+    #input: HTMLInputElement | null = null;
+    #checkbox: HTMLInputElement | null = null;
+    #sync = () => {
+      if (!this.#input || !this.#checkbox) return;
+      const empty = this.#input.value.trim() === '';
+      this.#checkbox.disabled = empty;
+      if (empty) this.#checkbox.checked = false;
+    };
+
+    connectedCallback() {
+      this.#input = document.getElementById(this.dataset.zaloInput ?? '') as HTMLInputElement | null;
+      this.#checkbox = this.querySelector('input[type="checkbox"]');
+      this.#input?.addEventListener('input', this.#sync);
+      this.#sync();
+    }
+
+    disconnectedCallback() {
+      this.#input?.removeEventListener('input', this.#sync);
+    }
+  }
+
+  if (!customElements.get('zalo-opt-in')) customElements.define('zalo-opt-in', ZaloOptIn);
+</script>

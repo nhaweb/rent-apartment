@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { deleteAccountSchema, signInSchema } from '../src/lib/validation/auth';
+import {
+  deleteAccountSchema,
+  landlordSignUpProfileSchema,
+  signInSchema,
+  signUpSchema,
+  updateProfileSchema,
+  ZALO_PUBLIC_NEEDS_NUMBER,
+} from '../src/lib/validation/auth';
 import { vnPhoneSchema } from '../src/lib/validation/phone';
 
 test('vnPhoneSchema normalizes Vietnamese mobile numbers', () => {
@@ -26,4 +33,24 @@ test('deleteAccountSchema needs the confirm word', () => {
   assert.equal(deleteAccountSchema.safeParse({ password: 'p', confirm: ' XÓA ' }).success, true);
   assert.equal(deleteAccountSchema.safeParse({ password: 'p', confirm: 'XOA' }).success, false);
   assert.equal(deleteAccountSchema.safeParse({ password: '', confirm: 'XÓA' }).success, false);
+});
+
+test('the Zalo opt-in defaults to off and needs a Zalo number', () => {
+  const profile = { name: 'Lan', phone: '0905123456' };
+  assert.equal(updateProfileSchema.parse(profile).zaloPublic, false);
+  assert.equal(updateProfileSchema.parse({ ...profile, zalo: '0905 111 222', zaloPublic: true }).zaloPublic, true);
+
+  const missing = updateProfileSchema.safeParse({ ...profile, zalo: '', zaloPublic: true });
+  assert.equal(missing.success, false);
+  assert.deepEqual(missing.error?.issues.map((issue) => [issue.path.join('.'), issue.message]), [
+    ['zaloPublic', ZALO_PUBLIC_NEEDS_NUMBER],
+  ]);
+
+  const signUp = { ...profile, email: 'lan@example.vn', password: 'password123' };
+  assert.equal(signUpSchema.safeParse({ ...signUp, zaloPublic: true }).success, false);
+  assert.equal(signUpSchema.safeParse({ ...signUp, zalo: '0905111222', zaloPublic: true }).success, true);
+
+  // The Better Auth hook re-checks the sign-up body.
+  assert.equal(landlordSignUpProfileSchema.safeParse({ phone: '0905123456', zalo: '', zaloPublic: true }).success, false);
+  assert.equal(landlordSignUpProfileSchema.parse({ phone: '0905123456', zalo: '' }).zaloPublic, false);
 });

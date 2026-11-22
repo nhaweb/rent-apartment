@@ -35,8 +35,8 @@ export interface AuthState {
 async function findLandlord(id: string): Promise<Landlord | null> {
   const [row] = await db.select().from(landlords).where(eq(landlords.id, id)).limit(1);
   if (!row) return null;
-  const { zalo, ...rest } = row;
-  return zalo ? { ...rest, zalo } : rest;
+  const { zalo, zaloPublicAt, ...rest } = row;
+  return { ...rest, ...(zalo ? { zalo } : {}), ...(zaloPublicAt ? { zaloPublicAt } : {}) };
 }
 
 async function resolveAuthState(context: AuthContext): Promise<AuthState | null> {

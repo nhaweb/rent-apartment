@@ -47,6 +47,7 @@ export const server = {
         password: input.password,
         phone: input.phone,
         zalo: input.zalo,
+        zaloPublic: input.zaloPublic,
         // Where the link in the verification email lands.
         callbackURL: EMAIL_VERIFIED_CALLBACK,
       });

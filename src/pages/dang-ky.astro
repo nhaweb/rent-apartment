@@ -2,6 +2,7 @@
 import { actions } from 'astro:actions';
 import PublicLayout from '../layouts/PublicLayout.astro';
 import AuthCard from '../components/auth/AuthCard.astro';
+import ZaloOptIn from '../components/auth/ZaloOptIn.astro';
 import Button from '../components/ui/Button.astro';
 import FormAlert from '../components/ui/FormAlert.astro';
 import Input from '../components/ui/Input.astro';
@@ -71,8 +72,10 @@ const next = values.next ?? Astro.url.searchParams.get('next') ?? '';
         pattern={VN_PHONE_INPUT_PATTERN}
         title={VN_PHONE_INPUT_TITLE}
         value={values.phone}
+        aria-describedby={errors.fields.phone ? undefined : 'signup-phone-hint'}
         error={errors.fields.phone}
       />
+      {!errors.fields.phone && <p id="signup-phone-hint" class="-mt-2.5 text-small text-muted">Người thuê bấm "Gọi điện" trên trang phòng của bạn sẽ gọi tới số này.</p>}
       <Input
         id="signup-zalo"
         label="Số Zalo"
@@ -85,6 +88,7 @@ const next = values.next ?? Astro.url.searchParams.get('next') ?? '';
         value={values.zalo}
         error={errors.fields.zalo}
       />
+      <ZaloOptIn id="signup-zalo-public" zaloInputId="signup-zalo" checked={values.zaloPublic === 'on'} error={errors.fields.zaloPublic} />
       <Button type="submit" class="mt-2 w-full">Tạo tài khoản</Button>
       <p class="text-small text-muted">
         Khi tạo tài khoản, bạn đồng ý với <a href="/dieu-khoan" class="link">Điều khoản sử dụng</a> và

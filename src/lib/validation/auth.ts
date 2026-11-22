@@ -34,11 +34,26 @@ const optionalPhoneSchema = z
   .transform((value) => (value === '' ? undefined : value))
   .pipe(vnPhoneSchema.optional());
 
-/** Landlord profile fields collected on sign-up, besides the credentials. */
+/** Field error when "Cho người thuê nhắn Zalo" is checked without a number. */
+export const ZALO_PUBLIC_NEEDS_NUMBER = 'Nhập số Zalo để bật mục này';
+
+/**
+ * Landlord profile fields collected on sign-up, besides the credentials.
+ * `zaloPublic`: the "Cho người thuê nhắn Zalo cho tôi từ trang phòng" checkbox
+ * (unchecked = absent from the form = false).
+ */
 export const landlordProfileSchema = z.object({
   phone: vnPhoneSchema,
   zalo: optionalPhoneSchema.optional(),
+  zaloPublic: z.boolean().default(false),
 });
+
+/** The opt-in needs a Zalo number. Applied to every schema that has both fields. */
+function zaloOptInNeedsNumber(data: { zalo?: string; zaloPublic: boolean }, ctx: z.RefinementCtx) {
+  if (data.zaloPublic && !data.zalo) {
+    ctx.addIssue({ code: 'custom', message: ZALO_PUBLIC_NEEDS_NUMBER, path: ['zaloPublic'] });
+  }
+}
 
 export const nameSchema = z
   .string({ error: 'Vui lòng nhập họ tên' })
@@ -46,14 +61,19 @@ export const nameSchema = z
   .min(1, { error: 'Vui lòng nhập họ tên' })
   .max(100, { error: 'Họ tên tối đa 100 ký tự' });
 
-export const signUpSchema = z.object({
-  name: nameSchema,
-  email: emailSchema,
-  password: newPasswordSchema,
-  ...landlordProfileSchema.shape,
-  /** Path to continue to after sign-up (e.g. "Đăng phòng"). Checked by `safeNextPath`. */
-  next: nextPathSchema,
-});
+export const signUpSchema = z
+  .object({
+    name: nameSchema,
+    email: emailSchema,
+    password: newPasswordSchema,
+    ...landlordProfileSchema.shape,
+    /** Path to continue to after sign-up (e.g. "Đăng phòng"). Checked by `safeNextPath`. */
+    next: nextPathSchema,
+  })
+  .superRefine(zaloOptInNeedsNumber);
+
+/** The sign-up body the Better Auth user hook reads (`create-auth.ts`). */
+export const landlordSignUpProfileSchema = landlordProfileSchema.superRefine(zaloOptInNeedsNumber);
 
 export const signInSchema = z.object({
   email: emailSchema,
@@ -81,10 +101,12 @@ export const resetPasswordSchema = z
   });
 
 /** `/quan-ly/tai-khoan`: name and contact numbers (email cannot change yet). */
-export const updateProfileSchema = z.object({
-  name: nameSchema,
-  ...landlordProfileSchema.shape,
-});
+export const updateProfileSchema = z
+  .object({
+    name: nameSchema,
+    ...landlordProfileSchema.shape,
+  })
+  .superRefine(zaloOptInNeedsNumber);
 
 export const changePasswordSchema = z
   .object({

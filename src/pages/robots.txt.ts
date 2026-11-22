@@ -15,6 +15,9 @@ const PRIVATE_PATHS = [
   '/quen-mat-khau',
   '/dat-lai-mat-khau',
   '/dang-xuat',
+  // "Gọi điện" / "Nhắn Zalo" redirects: they lead off-site and reveal a number.
+  '/phong/*/goi',
+  '/phong/*/zalo',
 ];
 
 export const GET: APIRoute = ({ site, url }) => {

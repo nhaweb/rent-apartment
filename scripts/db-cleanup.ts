@@ -18,10 +18,12 @@ import {
   chatRateLimits,
   contactRateLimits,
   emailSendCounts,
+  phoneRateLimits,
   rateLimit,
   session,
   uploadRateLimits,
   verification,
+  zaloRateLimits,
 } from '../src/lib/db/schema';
 import { neonEndpointId, requireEnv } from './lib/env';
 
@@ -46,6 +48,8 @@ const targets = [
   { name: 'chat_rate_limits (> 1 day)', table: chatRateLimits, where: lt(chatRateLimits.windowStart, dayAgo) },
   { name: 'contact_rate_limits (> 1 day)', table: contactRateLimits, where: lt(contactRateLimits.windowStart, dayAgo) },
   { name: 'upload_rate_limits (> 1 day)', table: uploadRateLimits, where: lt(uploadRateLimits.windowStart, dayAgo) },
+  { name: 'phone_rate_limits (> 1 day)', table: phoneRateLimits, where: lt(phoneRateLimits.windowStart, dayAgo) },
+  { name: 'zalo_rate_limits (> 1 day)', table: zaloRateLimits, where: lt(zaloRateLimits.windowStart, dayAgo) },
   { name: 'email_send_counts (> 7 days)', table: emailSendCounts, where: lt(emailSendCounts.day, weekAgo) },
 ] as const;
 

@@ -1,7 +1,8 @@
 ---
 /**
- * /quan-ly/tai-khoan: the landlord's name, phone and Zalo (shown nowhere
- * public; used to call renters back and in notification emails), password,
+ * /quan-ly/tai-khoan: the landlord's name, phone (reached by renters only
+ * through the "Gọi điện" redirect `/phong/[id]/goi`) and Zalo, the
+ * "Nhắn Zalo" opt-in (the number is only reached through `/phong/[id]/zalo`), password,
  * signed-in devices and account deletion. Zero-JS forms; each redirects on
  * success (PRG).
  */
@@ -10,6 +11,7 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
 import Button from '../../components/ui/Button.astro';
 import FormAlert from '../../components/ui/FormAlert.astro';
 import Input from '../../components/ui/Input.astro';
+import ZaloOptIn from '../../components/auth/ZaloOptIn.astro';
 import { getAuthState, submittedValues } from '../../lib/auth';
 import { formErrors } from '../../lib/form-errors';
 import { formatPhone } from '../../lib/format';
@@ -51,8 +53,18 @@ const dateTime = new Intl.DateTimeFormat('vi-VN', {
   timeZone: 'Asia/Ho_Chi_Minh',
 });
 const profile = profileResult?.error
-  ? { name: submitted.name ?? '', phone: submitted.phone ?? '', zalo: submitted.zalo ?? '' }
-  : { name: landlord.name, phone: formatPhone(landlord.phone), zalo: landlord.zalo ? formatPhone(landlord.zalo) : '' };
+  ? {
+      name: submitted.name ?? '',
+      phone: submitted.phone ?? '',
+      zalo: submitted.zalo ?? '',
+      zaloPublic: submitted.zaloPublic === 'on',
+    }
+  : {
+      name: landlord.name,
+      phone: formatPhone(landlord.phone),
+      zalo: landlord.zalo ? formatPhone(landlord.zalo) : '',
+      zaloPublic: Boolean(landlord.zalo && landlord.zaloPublicAt),
+    };
 
 const toast = toastFromParams(Astro.url.searchParams, {
   'da-luu': 'Đã lưu thông tin.',
@@ -64,7 +76,10 @@ const section = 'rounded-card border border-line bg-paper p-5 sm:p-6';
 
 <DashboardLayout title="Tài khoản" toast={toast}>
   <h1 class="text-display font-medium">Tài khoản</h1>
-  <p class="mt-1 text-muted">Thông tin liên hệ của bạn không hiện công khai. Người thuê gửi yêu cầu qua biểu mẫu.</p>
+  <p class="mt-1 text-muted">
+    Email không hiện công khai. Người thuê gửi yêu cầu qua biểu mẫu, bấm gọi số điện thoại của bạn từ trang phòng, hoặc
+    nhắn Zalo nếu bạn bật bên dưới.
+  </p>
 
   <div class="mt-6 grid max-w-xl gap-6">
     <section class={section} aria-labelledby="profile-heading">
@@ -112,6 +127,7 @@ const section = 'rounded-card border border-line bg-paper p-5 sm:p-6';
           value={profile.zalo}
           error={profileErrors.fields.zalo}
         />
+        <ZaloOptIn id="profile-zalo-public" zaloInputId="profile-zalo" checked={profile.zaloPublic} error={profileErrors.fields.zaloPublic} />
         <div>
           <Button type="submit">Lưu thông tin</Button>
         </div>

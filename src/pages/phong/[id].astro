@@ -8,6 +8,13 @@ import Icon from '../../components/ui/Icon.astro';
 import ContactForm from '../../components/contact/ContactForm.astro';
 import { amenityInfo, roomHighlights } from '../../lib/amenities';
 import { getRentedRoom, getRoomById, getSimilarRooms } from '../../lib/rooms';
+import {
+  DIRECT_CONTACT_LIMIT_PARAM,
+  DIRECT_CONTACT_LIMIT_VALUE,
+  directContactPath,
+  roomHasPublicZalo,
+} from '../../lib/room-direct-contact';
+import FormAlert from '../../components/ui/FormAlert.astro';
 import { formatPlace, PROVINCE, wardLongLabel, wardShortLabel } from '../../lib/locations';
 import { slugify } from '../../lib/slug';
 import { photoUrl } from '../../lib/photo-urls';
@@ -36,9 +43,14 @@ if (contactResult && !contactResult.error) {
 const contactValues = contactResult?.error ? await submittedValues(Astro.request) : {};
 const contactErrors = formErrors(contactResult?.error);
 const contactSent = Astro.url.searchParams.has('da-gui');
+// `/phong/[id]/goi` or `/zalo` sent the renter back: too many "Gọi điện" / "Nhắn Zalo" this hour.
+const directLimited = Astro.url.searchParams.get(DIRECT_CONTACT_LIMIT_PARAM) === DIRECT_CONTACT_LIMIT_VALUE;
 setPublicCache(Astro);
 
-const similar = await getSimilarRooms(room, 5);
+// Numbers stay behind the redirects; the page only knows whether the Zalo button shows.
+const [similar, hasZalo] = await Promise.all([getSimilarRooms(room, 5), roomHasPublicZalo(room.id)]);
+const phoneHref = directContactPath('phone', room.id);
+const zaloHref = directContactPath('zalo', room.id);
 const cover = room.photos[0];
 // Share preview: the full-size cover (WebP, at most 1600px).
 const shareImage = cover ? photoUrl(cover.key) : undefined;
@@ -70,7 +82,7 @@ const deposit = room.deposit > 0 ? formatPrice(room.deposit) : 'Không cần c�
   imageWidth={cover?.width}
   imageHeight={cover?.height}
   ogType="article"
-  noindex={contactSent}
+  noindex={contactSent || directLimited}
   chat
   jsonLd={[roomJsonLd(room, site), breadcrumbJsonLd(crumbs, site)]}
   chatRoomId={room.id}
@@ -248,6 +260,35 @@ const deposit = room.deposit > 0 ? formatPrice(room.deposit) : 'Không cần c�
             </div>
           </dl>
           <h2 id="contact-heading" class="mt-6 text-title">Hẹn xem phòng này</h2>
+          {
+            directLimited && (
+              <FormAlert class="mt-4">
+                Bạn đã bấm gọi hoặc nhắn Zalo nhiều lần trong một giờ. Vui lòng thử lại sau, hoặc gửi yêu cầu xem phòng bên
+                dưới.
+              </FormAlert>
+            )
+          }
+          <!-- Outline: the form submit stays the one primary button. Both go through rate-limited
+               redirects (tel: in this tab; zalo.me in a new tab, so the room stays open). -->
+          <div class:list={['mt-4 grid gap-2', hasZalo && 'grid-cols-2']}>
+            <Button href={phoneHref} variant="outline" rel="nofollow">
+              <Icon name="phone" size={20} />
+              {hasZalo ? 'Gọi điện' : 'Gọi chủ phòng'}
+            </Button>
+            {
+              hasZalo && (
+                <Button href={zaloHref} variant="outline" target="_blank" rel="nofollow noopener noreferrer">
+                  <img src="/brand/zalo.webp" alt="" width="24" height="24" class="size-6" />
+                  Nhắn Zalo
+                </Button>
+              )
+            }
+          </div>
+          <p class="mt-5 flex items-center gap-3 text-small text-muted">
+            <span class="h-px flex-1 bg-line" aria-hidden="true" />
+            hoặc để lại số điện thoại
+            <span class="h-px flex-1 bg-line" aria-hidden="true" />
+          </p>
           <div class="mt-4">
             <ContactForm roomId={room.id} values={contactValues} errors={contactErrors} sent={contactSent} />
           </div>
@@ -264,15 +305,40 @@ const deposit = room.deposit > 0 ? formatPrice(room.deposit) : 'Không cần c�
     }
   </div>
 
-  <!-- Phone action bar: price and the one action, always in reach. Outline, so the
+  <!-- Phone action bar: price, call (and Zalo), and the viewing request, always in reach. Outline, so the
        form submit stays the only primary button once the form is on screen. -->
   <div class="glass-strong fixed inset-x-0 bottom-0 z-30 border-t border-line lg:hidden">
     <div class="wrap flex items-center justify-between gap-4 py-3">
-      <p class="leading-tight">
+      <p class="min-w-0 leading-tight">
         <span class="block"><span class="text-title font-medium text-ink">{formatPriceShort(room.price)}</span><span class="text-small text-muted">/tháng</span></span>
-        <span class="text-small text-muted">{formatArea(room.area)} · {room.neighborhood ?? wardShortLabel(room.ward)}</span>
+        <span class="block truncate text-small text-muted">{formatArea(room.area)} · {room.neighborhood ?? wardShortLabel(room.ward)}</span>
       </p>
-      <Button href="#lien-he" variant="outline">Hẹn xem phòng</Button>
+      <div class="flex shrink-0 items-center gap-2">
+        <a
+          href={phoneHref}
+          rel="nofollow"
+          aria-label="Gọi chủ phòng"
+          data-press
+          class="transition-feedback inline-flex size-11 items-center justify-center rounded-full border border-line bg-paper text-ink hover:border-ink active:bg-surface"
+        >
+          <Icon name="phone" size={20} />
+        </a>
+        {
+          hasZalo && (
+            <a
+              href={zaloHref}
+              target="_blank"
+              rel="nofollow noopener noreferrer"
+              aria-label="Nhắn Zalo chủ phòng"
+              data-press
+              class="transition-feedback inline-flex size-11 items-center justify-center rounded-full border border-line bg-paper hover:border-ink active:bg-surface"
+            >
+              <img src="/brand/zalo.webp" alt="" width="24" height="24" class="size-6" />
+            </a>
+          )
+        }
+        <Button href="#lien-he" variant="outline" aria-label="Hẹn xem phòng">{hasZalo ? "Hẹn xem" : "Hẹn xem phòng"}</Button>
+      </div>
     </div>
   </div>
 </PublicLayout>

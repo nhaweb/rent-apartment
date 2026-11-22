@@ -6,7 +6,7 @@
  * then harmless.
  *
  * Never cached: non-GET requests (form posts), responses for a visitor with a
- * session cookie, and URLs that carry a one-off notice (`?da-gui`).
+ * session cookie, and URLs that carry a one-off notice (`?da-gui`, `?lien-he`).
  */
 interface CacheContext {
   request: Request;
@@ -14,7 +14,8 @@ interface CacheContext {
   response: { headers: Headers };
 }
 
-const NO_CACHE_PARAMS = ['da-gui'];
+// `lien-he`: the "Gọi điện" / "Nhắn Zalo" limit notice (`src/lib/room-direct-contact.ts`).
+const NO_CACHE_PARAMS = ['da-gui', 'lien-he'];
 
 export function setPublicCache(context: CacheContext, seconds = 60): void {
   const { request, url, response } = context;

@@ -2,7 +2,7 @@
  * Better Auth instance factory. Free of `astro:*` imports so the Better Auth
  * CLI (`auth.cli.ts`) can load it; the app instance lives in `./server.ts`.
  *
- * Landlords sign up with email + password. `phone` and `zalo` arrive in the
+ * Landlords sign up with email + password. `phone`, `zalo` and `zaloPublic` arrive in the
  * sign-up body; the user hooks validate them and create the matching
  * `landlords` row (landlords.id = user.id).
  */
@@ -12,7 +12,7 @@ import { APIError } from 'better-auth/api';
 import { eq } from 'drizzle-orm';
 import type { Db } from '../db/create-db';
 import * as schema from '../db/schema';
-import { landlordProfileSchema, nameSchema, PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from '../validation/auth';
+import { landlordSignUpProfileSchema, nameSchema, PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from '../validation/auth';
 
 export interface ResetPasswordEmail {
   to: string;
@@ -83,8 +83,8 @@ const RATE_LIMIT_RULES = {
 
 /** Reads the landlord profile from the sign-up request body. */
 function parseProfile(body: unknown) {
-  const { phone, zalo } = (body ?? {}) as Record<string, unknown>;
-  return landlordProfileSchema.safeParse({ phone, zalo: zalo ?? '' });
+  const { phone, zalo, zaloPublic } = (body ?? {}) as Record<string, unknown>;
+  return landlordSignUpProfileSchema.safeParse({ phone, zalo: zalo ?? '', zaloPublic: zaloPublic === true });
 }
 
 export function createAuth({
@@ -195,6 +195,8 @@ export function createAuth({
                 email: user.email,
                 phone: profile.data.phone,
                 zalo: profile.data.zalo ?? null,
+                // Opt-in checkbox on the sign-up form (needs a number, checked by the schema).
+                zaloPublicAt: profile.data.zaloPublic && profile.data.zalo ? new Date() : null,
               });
             } catch (error) {
               console.error('[auth] Failed to create landlord row, removing user', user.id, error);

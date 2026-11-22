@@ -6,6 +6,8 @@
  * - apple-touch-icon.png (180px), icon-192.png, icon-512.png: logo mark on a
  *   white square with padding (iOS and Android fill transparency with black)
  * - og-default.jpg (1200x630): the hero photo, cropped, no text on it
+ * - brand/zalo.webp (96px): the Zalo logo for "Nhắn Zalo" on room pages, from
+ *   `assets-src/brand/zalo.png` (the official logo, never recolored)
  *
  * Sources: `public/logo/logo-mark.webp`, `src/assets/quy-nhon/beach-promenade.webp`.
  */
@@ -14,6 +16,7 @@ import sharp from 'sharp';
 
 const MARK = 'public/logo/logo-mark.webp';
 const HERO = 'src/assets/quy-nhon/beach-promenade.webp';
+const ZALO = 'assets-src/brand/zalo.png';
 const WHITE = { r: 255, g: 255, b: 255, alpha: 1 };
 const CLEAR = { r: 0, g: 0, b: 0, alpha: 0 };
 
@@ -55,4 +58,9 @@ await sharp(HERO)
   .jpeg({ quality: 82, mozjpeg: true })
   .toFile('public/og-default.jpg');
 
-console.log('Wrote favicon.ico, favicon-32.png, apple-touch-icon.png, icon-192.png, icon-512.png, og-default.jpg');
+await sharp(ZALO)
+  .resize(96, 96, { fit: 'contain', background: CLEAR })
+  .webp({ quality: 90, alphaQuality: 100 })
+  .toFile('public/brand/zalo.webp');
+
+console.log('Wrote favicon.ico, favicon-32.png, apple-touch-icon.png, icon-192.png, icon-512.png, og-default.jpg, brand/zalo.webp');

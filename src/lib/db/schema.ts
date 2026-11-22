@@ -28,6 +28,12 @@ export const landlords = pgTable('landlords', {
   name: text('name').notNull(),
   phone: text('phone').notNull(),
   zalo: text('zalo'),
+  /**
+   * When the landlord opted in to "Nhắn Zalo" on their room pages (sign-up or
+   * `/quan-ly/tai-khoan`); null = not shown. Set again when the Zalo number
+   * changes. The number never reaches a page: `/phong/[id]/zalo` redirects (`src/lib/room-direct-contact.ts`).
+   */
+  zaloPublicAt: timestamp('zalo_public_at', { withTimezone: true }),
   email: text('email').notNull().unique(),
 });
 
@@ -162,6 +168,20 @@ export const chatRateLimits = pgTable('chat_rate_limits', {
 
 /** Same fixed-window counters for the renter contact form (`src/lib/rate-limit.ts`). */
 export const contactRateLimits = pgTable('contact_rate_limits', {
+  key: text('key').primaryKey(),
+  windowStart: timestamp('window_start', { withTimezone: true }).notNull(),
+  count: integer('count').notNull(),
+});
+
+/** Same counters for the "Gọi điện" redirect (`/phong/[id]/goi`), per client IP. */
+export const phoneRateLimits = pgTable('phone_rate_limits', {
+  key: text('key').primaryKey(),
+  windowStart: timestamp('window_start', { withTimezone: true }).notNull(),
+  count: integer('count').notNull(),
+});
+
+/** Same counters for the "Nhắn Zalo" redirect (`/phong/[id]/zalo`), per client IP. */
+export const zaloRateLimits = pgTable('zalo_rate_limits', {
   key: text('key').primaryKey(),
   windowStart: timestamp('window_start', { withTimezone: true }).notNull(),
   count: integer('count').notNull(),
