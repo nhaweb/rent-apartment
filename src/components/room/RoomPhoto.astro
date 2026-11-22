@@ -1,0 +1,37 @@
+---
+/**
+ * One room photo from object storage. Plain <img> (no server-side resizing):
+ * `srcset` offers the 600px thumbnail and the full file, and width/height
+ * reserve the space so nothing shifts while it loads.
+ */
+import type { HTMLAttributes } from 'astro/types';
+import type { RoomPhoto } from '../../types';
+import { photoSources } from '../../lib/photo-urls';
+
+interface Props {
+  photo: RoomPhoto;
+  alt: string;
+  sizes: string;
+  /** `thumb` in grids and cards, `full` on the detail page. */
+  prefer?: 'thumb' | 'full';
+  class?: string;
+  loading?: 'eager' | 'lazy';
+  fetchpriority?: HTMLAttributes<'img'>['fetchpriority'];
+}
+
+const { photo, alt, sizes, prefer = 'thumb', class: className, loading = 'lazy', fetchpriority } = Astro.props;
+const { src, srcset } = photoSources(photo, prefer);
+---
+
+<img
+  src={src}
+  srcset={srcset}
+  sizes={sizes}
+  width={photo.width}
+  height={photo.height}
+  alt={alt}
+  class={className}
+  loading={loading}
+  fetchpriority={fetchpriority}
+  decoding="async"
+/>

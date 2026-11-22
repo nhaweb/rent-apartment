@@ -1,0 +1,89 @@
+---
+import Icon from "../ui/Icon.astro";
+import SearchBar from "../room/SearchBar.astro";
+import { LANDLORD_START_PATH, SITE_NAME } from "../../lib/site";
+import type { WardOption } from "../../lib/rooms";
+import type { RoomFilters } from "../../lib/validation/room-filters";
+
+interface Props {
+  wards: WardOption[];
+  filters?: RoomFilters;
+  /** Home renders its own large search below the header. */
+  showSearch?: boolean;
+}
+
+const { wards, filters, showSearch = true } = Astro.props;
+const path = Astro.url.pathname;
+const onListing = path === "/phong" || path.startsWith("/phong/");
+const onMap = path === "/ban-do";
+const navLink =
+  "transition-feedback inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-lg text-small font-medium whitespace-nowrap hover:bg-surface aria-[current=page]:text-accent sm:px-4";
+---
+
+<header class="glass sticky top-0 z-40 border-b border-line [view-transition-name:site-header]">
+  <div class="wrap flex h-18 items-center justify-between gap-3 md:h-20 md:gap-6">
+    <a
+      href="/"
+      class:list={[
+        "flex min-h-11 shrink-0 items-center gap-2.5",
+        showSearch && "max-md:min-w-11",
+      ]}
+      aria-label={`${SITE_NAME}, trang chủ`}
+    >
+      <img
+        src="/logo/logo-mark.webp"
+        alt=""
+        width="41"
+        height="40"
+        class="h-10 w-auto shrink-0"
+      />
+      <span
+        class:list={[
+          "text-title leading-none font-medium whitespace-nowrap font-",
+          showSearch ? "hidden lg:inline" : "max-[359px]:sr-only",
+        ]}
+      >
+        PML Home
+      </span>
+    </a>
+
+    <!-- {showSearch && (
+      <div class="flex min-w-0 flex-1 justify-center">
+        <SearchBar wards={wards} filters={filters} size="md" />
+      </div>
+    )} -->
+
+    <nav
+      aria-label="Điều hướng chính"
+      class:list={["flex shrink-0", showSearch && "hidden md:flex"]}
+    >
+      <a
+        href="/phong"
+        aria-current={onListing ? "page" : undefined}
+        title="Tất cả phòng"
+        class={navLink}
+      >
+        <Icon name="grid" size={18} />
+        <span class="max-sm:sr-only md:max-xl:sr-only">Tất cả phòng</span>
+      </a>
+      <a
+        href="/ban-do"
+        aria-current={onMap ? "page" : undefined}
+        title="Bản đồ"
+        class={navLink}
+      >
+        <Icon name="map" size={18} />
+        <span class="max-sm:sr-only md:max-xl:sr-only">Bản đồ</span>
+      </a>
+      <a
+        href={LANDLORD_START_PATH}
+        data-press
+        title="Đăng phòng cho thuê"
+        class="transition-feedback ml-1 inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-lg border border-line bg-paper text-small font-medium whitespace-nowrap hover:border-ink sm:px-4"
+      >
+        <Icon name="plus" size={18} />
+        <span class="max-sm:sr-only">Đăng phòng</span>
+      </a>
+    </nav>
+  </div>
+</header>

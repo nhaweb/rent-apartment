@@ -1,0 +1,36 @@
+# Type check, unit tests and both production builds on every push and PR.
+# No database or R2 access: builds only need the PUBLIC_* values, which are
+# placeholders here.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      PUBLIC_SITE_URL: https://example.invalid
+      PUBLIC_IMAGE_BASE_URL: https://images.example.invalid
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      - name: Build (Fly.io, node adapter)
+        run: npm run build
+        env:
+          DEPLOY_TARGET: node
+      - name: Build (Vercel)
+        run: npm run build
+        env:
+          DEPLOY_TARGET: vercel

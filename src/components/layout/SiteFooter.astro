@@ -1,0 +1,121 @@
+---
+import { DASHBOARD_PATH } from "../../lib/auth/paths";
+import {
+  LANDLORD_SIGN_IN_PATH,
+  LANDLORD_SIGN_UP_PATH,
+  LANDLORD_START_PATH,
+  SITE_CITY,
+  SITE_NAME,
+} from "../../lib/site";
+import type { WardOption } from "../../lib/rooms";
+import { PRICE_RANGE_OPTIONS } from "../../lib/room-filter-options";
+import {
+  ROOM_FILTER_PARAMS,
+  roomFiltersToQuery,
+} from "../../lib/validation/room-filters";
+
+interface Props {
+  wards: WardOption[];
+  /** Landlord links: dashboard + new room when signed in, sign-up / sign-in otherwise. */
+  signedIn?: boolean;
+}
+
+const { wards, signedIn = false } = Astro.props;
+const landlordLinks = signedIn
+  ? [
+      { href: LANDLORD_START_PATH, label: "Đăng phòng cho thuê" },
+      { href: DASHBOARD_PATH, label: "Quản lý phòng" },
+    ]
+  : [
+      { href: LANDLORD_SIGN_UP_PATH, label: "Cho thuê phòng" },
+      { href: LANDLORD_SIGN_IN_PATH, label: "Đăng nhập" },
+    ];
+const year = new Date().getFullYear();
+---
+
+<footer class="mt-20 border-t border-line bg-surface text-ink">
+  <div class="wrap grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_1fr]">
+    <div class="sm:col-span-2 lg:col-span-1">
+      <a href="/" class="inline-block" aria-label={`${SITE_NAME}, trang chủ`}>
+        <img
+          src="/logo/logo-text.webp"
+          alt=""
+          width="200"
+          height="56"
+          loading="lazy"
+          decoding="async"
+          class="h-14 w-auto"
+        />
+      </a>
+      <p class="mt-3 max-w-sm text-muted">
+        Phòng cho thuê ở {SITE_CITY}, đăng bởi chính chủ phòng. Người thuê xem
+        phòng và gửi yêu cầu mà không cần tài khoản.
+      </p>
+    </div>
+    <nav aria-labelledby="footer-wards">
+      <p id="footer-wards" class="text-small font-medium text-muted">
+        Phòng theo khu vực
+      </p>
+      <ul class="mt-2">
+        {wards.map((ward) => (
+          <li>
+            <a
+              href={`/phong${roomFiltersToQuery({ place: ward.slug })}`}
+              class="link inline-flex min-h-11 items-center"
+            >
+              {ward.label}
+            </a>
+          </li>
+        ))}
+        <li>
+          <a href="/ban-do" class="link inline-flex min-h-11 items-center">
+            Xem trên bản đồ
+          </a>
+        </li>
+      </ul>
+    </nav>
+    <nav aria-labelledby="footer-landlords">
+      <p id="footer-landlords" class="text-small font-medium text-muted">
+        Dành cho chủ phòng
+      </p>
+      <ul class="mt-2">
+        {landlordLinks.map((item) => (
+          <li>
+            <a href={item.href} class="link inline-flex min-h-11 items-center">
+              {item.label}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+    <nav aria-labelledby="footer-prices">
+      <p id="footer-prices" class="text-small font-medium text-muted">
+        Phòng theo giá
+      </p>
+      <ul class="mt-2">
+        {PRICE_RANGE_OPTIONS.map((option) => (
+          <li>
+            <a
+              href={`/phong?${ROOM_FILTER_PARAMS.price}=${option.value}`}
+              class="link inline-flex min-h-11 items-center"
+            >
+              {option.label}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  </div>
+  <div class="wrap">
+    <div class="flex flex-wrap items-center justify-between gap-x-6 border-t border-line py-4 text-small text-muted">
+      <p class="py-3">
+        © {year} {SITE_NAME}
+      </p>
+      <ul class="flex flex-wrap gap-x-6">
+        <li><a href="/chinh-sach-bao-mat" class="link inline-flex min-h-11 items-center">Chính sách bảo mật</a></li>
+        <li><a href="/dieu-khoan" class="link inline-flex min-h-11 items-center">Điều khoản sử dụng</a></li>
+        <li><a href="/nguon-anh" class="link inline-flex min-h-11 items-center">Nguồn ảnh</a></li>
+      </ul>
+    </div>
+  </div>
+</footer>

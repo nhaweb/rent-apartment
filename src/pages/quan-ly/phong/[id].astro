@@ -1,0 +1,83 @@
+---
+/**
+ * Edit one of the signed-in landlord's rooms. Another landlord's room (or a
+ * missing one) renders the 404 page with status 404, never 403.
+ */
+import { actions } from 'astro:actions';
+import DashboardLayout from '../../../layouts/DashboardLayout.astro';
+import RoomForm from '../../../components/room/RoomForm.astro';
+import Badge from '../../../components/ui/Badge.astro';
+import FormAlert from '../../../components/ui/FormAlert.astro';
+import PhotoManager from '../../../components/room/photos/PhotoManager.astro';
+import { getCurrentLandlord } from '../../../lib/auth';
+import { formErrors } from '../../../lib/form-errors';
+import { getOwnRoom } from '../../../lib/landlord-rooms';
+import { roomFormValues, submittedRoomFormValues } from '../../../lib/room-form';
+import { getWardCenters } from '../../../lib/rooms';
+
+export const prerender = false;
+
+const landlord = await getCurrentLandlord(Astro);
+// The middleware guarantees a landlord here; this only narrows the type.
+if (!landlord) return Astro.redirect('/dang-nhap', 303);
+
+const room = await getOwnRoom(landlord.id, Astro.params.id ?? '');
+if (!room) {
+  Astro.response.status = 404;
+  return Astro.rewrite('/404');
+}
+
+const result = Astro.getActionResult(actions.updateRoom);
+if (result && !result.error) return Astro.redirect('/quan-ly/phong?da-luu=1', 303);
+
+const values = (await submittedRoomFormValues(Astro.request)) ?? roomFormValues(room);
+const justCreated = Astro.url.searchParams.has('moi');
+const errors = formErrors(result?.error);
+const wardCenters = await getWardCenters();
+---
+
+<DashboardLayout title={`Sửa: ${room.title}`}>
+  <a href="/quan-ly/phong" class="link inline-flex min-h-11 items-center text-small text-muted">Phòng của tôi</a>
+  <div class="flex flex-wrap items-center gap-3">
+    <h1 class="text-display font-medium">Sửa phòng</h1>
+    <span data-status-badge><Badge variant={room.status} /></span>
+    <template data-hidden-badge><Badge variant="hidden" /></template>
+  </div>
+  <p class="mt-2 mb-6 text-muted">
+    {room.status === 'available' ? (
+      <>Đang hiện công khai. <a href={`/phong/${room.id}`} class="link text-ink">Xem trang phòng</a></>
+    ) : (
+      'Phòng này không hiện công khai.'
+    )}
+  </p>
+  {
+    justCreated && (
+      <FormAlert tone="info" class="mb-6 max-w-3xl">
+        Đã lưu phòng. Thêm ít nhất 1 ảnh, rồi chọn “Còn trống” và lưu để phòng hiện công khai.
+      </FormAlert>
+    )
+  }
+  <RoomForm
+    wardCenters={wardCenters}
+    action={actions.updateRoom}
+    values={values}
+    errors={errors}
+    roomId={room.id}
+    photoCount={room.photos.length}
+    submitLabel="Lưu thay đổi"
+  >
+    <PhotoManager slot="photos" roomId={room.id} photos={room.photos} status={room.status} />
+  </RoomForm>
+
+  <script>
+    // Arriving from "Lưu và thêm ảnh": move focus to the photo section.
+    if (location.hash === '#anh') document.getElementById('anh')?.focus({ preventScroll: false });
+    // The last photo was deleted and the room went hidden: update the badge.
+    document.addEventListener('photos-change', (event) => {
+      if (!(event as CustomEvent<{ hidden: boolean }>).detail.hidden) return;
+      const badge = document.querySelector('[data-status-badge]');
+      const hidden = document.querySelector<HTMLTemplateElement>('[data-hidden-badge]');
+      if (badge && hidden) badge.replaceChildren(hidden.content.cloneNode(true));
+    });
+  </script>
+</DashboardLayout>

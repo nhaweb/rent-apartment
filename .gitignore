@@ -22,3 +22,12 @@ pnpm-debug.log*
 
 # jetbrains setting folder
 .idea/
+
+# design skill scratch (photos, screenshots, history)
+.taste-skill/
+
+# Vercel adapter build output
+.vercel/
+
+# Local photo fixtures for upload tests (may contain real GPS data)
+test-fixtures/

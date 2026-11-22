@@ -1,0 +1,76 @@
+---
+/**
+ * One tile in the photo manager. Rendered on the server for saved photos and
+ * once inside a <template> (no `photo`) that the script clones for uploads.
+ * Phones: a row (thumbnail left, controls right). sm+: a grid tile.
+ */
+import Icon from '../../ui/Icon.astro';
+import type { RoomPhoto } from '../../../types';
+import { photoSources } from '../../../lib/photo-urls';
+
+interface Props {
+  photo?: RoomPhoto;
+  index?: number;
+}
+
+const { photo, index = 0 } = Astro.props;
+const sources = photo ? photoSources(photo, 'thumb') : undefined;
+const iconButton =
+  'transition-feedback grid size-10 shrink-0 place-items-center rounded-lg text-ink hover:bg-surface active:bg-line disabled:pointer-events-none disabled:text-line';
+---
+
+<li
+  data-tile
+  data-photo-id={photo?.id}
+  class="flex items-center gap-3 rounded-card border border-line bg-paper p-2 data-dragging:border-ink data-dragging:shadow-float sm:flex-col sm:items-stretch sm:gap-2"
+>
+  <div class="relative aspect-[4/3] w-28 shrink-0 overflow-hidden rounded-lg bg-surface sm:w-full">
+    <img
+      data-img
+      src={sources?.src}
+      srcset={sources?.srcset}
+      sizes="(min-width: 64rem) 240px, (min-width: 40rem) 45vw, 112px"
+      width={photo?.width}
+      height={photo?.height}
+      alt=""
+      draggable="false"
+      class:list={['size-full object-cover', !photo && 'invisible']}
+    />
+    <span data-cover class="glass-dark absolute top-1.5 left-1.5 rounded-md px-2 py-0.5 text-caption text-paper" hidden={index !== 0 || !photo}>
+      Ảnh bìa
+    </span>
+    <div data-progress class="absolute inset-x-0 bottom-0 h-1 bg-line" hidden>
+      <div data-progress-bar class="h-full w-0 bg-accent"></div>
+    </div>
+  </div>
+
+  <div class="flex min-w-0 flex-1 flex-col gap-1 sm:flex-none">
+    <p data-label class="truncate text-small text-muted sm:px-1">{photo ? `Ảnh ${index + 1}` : ''}</p>
+
+    <div data-actions class="flex items-center gap-1" hidden={!photo}>
+      <button type="button" data-drag class={`${iconButton} cursor-grab touch-none active:cursor-grabbing`} aria-label="Kéo để đổi vị trí">
+        <Icon name="gripVertical" size={18} />
+      </button>
+      <button type="button" data-move="-1" class={iconButton} aria-label="Chuyển lên trước">
+        <Icon name="chevronLeft" size={18} class="rotate-90 sm:rotate-0" />
+      </button>
+      <button type="button" data-move="1" class={iconButton} aria-label="Chuyển ra sau">
+        <Icon name="chevronRight" size={18} class="rotate-90 sm:rotate-0" />
+      </button>
+      <button type="button" data-delete class={`${iconButton} ml-auto text-danger`} aria-label="Xóa ảnh">
+        <Icon name="trash" size={18} />
+      </button>
+    </div>
+
+    <div data-failed class="flex flex-wrap items-center gap-x-2 gap-y-1 sm:px-1 sm:pb-1" hidden>
+      <p data-error class="flex w-full items-start gap-1.5 text-small text-danger">
+        <Icon name="circleAlert" size={16} class="mt-0.5" />
+        <span data-error-text></span>
+      </p>
+      <button type="button" data-retry data-press class="transition-feedback inline-flex min-h-9 items-center rounded-lg border border-line px-3 text-small font-medium text-ink hover:border-ink">
+        Thử lại
+      </button>
+      <button type="button" data-dismiss class="link inline-flex min-h-9 items-center px-1 text-small text-muted">Bỏ</button>
+    </div>
+  </div>
+</li>

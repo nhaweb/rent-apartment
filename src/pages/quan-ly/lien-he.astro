@@ -1,0 +1,222 @@
+---
+/**
+ * /quan-ly/lien-he: contact requests on the signed-in landlord's rooms,
+ * newest first. Filter by status (`?trang-thai=moi|da-lien-he|da-xong`),
+ * paginated (`?trang=`). Status change is a zero-JS form action; after a
+ * successful save the page redirects back to the same view (PRG).
+ */
+import { actions, isActionError } from 'astro:actions';
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import Button from '../../components/ui/Button.astro';
+import FormAlert from '../../components/ui/FormAlert.astro';
+import Icon from '../../components/ui/Icon.astro';
+import Pagination from '../../components/ui/Pagination.astro';
+import { getCurrentLandlord } from '../../lib/auth';
+import { CONTACT_INBOX_PATH, listOwnContactRequests } from '../../lib/contact-requests';
+import { CONTACT_STATUS_LABELS, CONTACT_STATUS_SLUGS } from '../../lib/contact-status';
+import { formatPhone, formatSentAt } from '../../lib/format';
+import { toastFromParams } from '../../lib/toast';
+import { CONTACT_REQUEST_STATUSES, type ContactRequestStatus } from '../../types';
+
+export const prerender = false;
+
+const landlord = await getCurrentLandlord(Astro);
+// The middleware guarantees a landlord here; this only narrows the type.
+if (!landlord) return Astro.redirect('/dang-nhap', 303);
+
+const params = Astro.url.searchParams;
+const status = CONTACT_REQUEST_STATUSES.find((value) => CONTACT_STATUS_SLUGS[value] === params.get('trang-thai'));
+const requestedPage = Number.parseInt(params.get('trang') ?? '1', 10);
+
+/** Inbox URL for a status filter and page, plus optional extra params. */
+function inboxHref(filter: ContactRequestStatus | undefined, page = 1, extra: Record<string, string> = {}): string {
+  const query = new URLSearchParams();
+  if (filter) query.set('trang-thai', CONTACT_STATUS_SLUGS[filter]);
+  if (page > 1) query.set('trang', String(page));
+  for (const [key, value] of Object.entries(extra)) query.set(key, value);
+  const search = query.toString();
+  return search ? `${CONTACT_INBOX_PATH}?${search}` : CONTACT_INBOX_PATH;
+}
+
+const statusResult = Astro.getActionResult(actions.setContactRequestStatus);
+if (statusResult && !statusResult.error) {
+  return Astro.redirect(inboxHref(status, requestedPage, { 'da-cap-nhat': '1' }), 303);
+}
+const actionError = statusResult?.error;
+if (actionError && isActionError(actionError) && actionError.code === 'NOT_FOUND') Astro.response.status = 404;
+const toast = actionError ? null : toastFromParams(params, { 'da-cap-nhat': 'Đã đổi trạng thái yêu cầu.' });
+
+const inbox = await listOwnContactRequests(landlord.id, {
+  status,
+  page: Number.isFinite(requestedPage) ? requestedPage : 1,
+});
+// Post back to the same view so the redirect keeps the filter and page.
+const currentView = inboxHref(status, inbox.page);
+const statusAction = `${currentView}${currentView.includes('?') ? '&' : '?'}${String(actions.setContactRequestStatus).replace(/^\?/, '')}`;
+const allCount = CONTACT_REQUEST_STATUSES.reduce((sum, value) => sum + inbox.counts[value], 0);
+const tabs: { label: string; count: number; filter: ContactRequestStatus | undefined }[] = [
+  { label: 'Tất cả', count: allCount, filter: undefined },
+  ...CONTACT_REQUEST_STATUSES.map((value) => ({ label: CONTACT_STATUS_LABELS[value], count: inbox.counts[value], filter: value })),
+];
+
+const statusBadge: Record<ContactRequestStatus, string> = {
+  new: 'bg-accent-soft text-accent-strong',
+  contacted: 'bg-surface text-muted',
+  closed: 'border border-line bg-paper text-muted',
+};
+---
+
+<DashboardLayout title="Yêu cầu liên hệ" toast={toast}>
+  <div>
+    <h1 class="text-display font-medium">Yêu cầu liên hệ</h1>
+    <p class="mt-1 text-muted">Người thuê gửi từ trang phòng. Gọi lại cho họ, rồi cập nhật trạng thái.</p>
+  </div>
+
+  <nav aria-label="Lọc theo trạng thái" class="mt-6 flex gap-2 overflow-x-auto pb-1">
+    {
+      tabs.map((tab) => {
+        const active = tab.filter === status;
+        return (
+          <a
+            href={inboxHref(tab.filter)}
+            aria-current={active ? 'page' : undefined}
+            class:list={[
+              'transition-feedback inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg border px-4 text-small font-medium whitespace-nowrap',
+              active ? 'border-ink bg-ink text-inv-ink' : 'border-line bg-paper text-ink hover:border-ink',
+            ]}
+          >
+            {tab.label}
+            <span class:list={['tabular-nums', active ? 'text-inv-ink' : 'text-muted']}>{tab.count}</span>
+          </a>
+        );
+      })
+    }
+  </nav>
+
+  {actionError && <FormAlert class="mt-6">{actionError.message}</FormAlert>}
+
+  {
+    inbox.items.length === 0 ? (
+      <div class="mt-6 rounded-card border border-line bg-paper px-5 py-12 text-center">
+        <Icon name="inbox" size={28} class="mx-auto text-muted" />
+        <p class="mt-3 font-medium">
+          {status ? `Không có yêu cầu nào “${CONTACT_STATUS_LABELS[status]}”` : 'Chưa có yêu cầu liên hệ nào'}
+        </p>
+        <p class="mt-1 text-small text-muted">
+          Khi người thuê gửi yêu cầu xem phòng, yêu cầu sẽ hiện ở đây và được gửi vào email của bạn.
+        </p>
+      </div>
+    ) : (
+      <ul class="mt-6 divide-y divide-line rounded-card border border-line bg-paper">
+        {inbox.items.map((item) => {
+          const statusId = `status-${item.id}`;
+          return (
+            <li class="grid gap-4 p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start lg:gap-6">
+              <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <p class="font-medium break-words text-ink">{item.renterName}</p>
+                  <span
+                    class:list={[
+                      'inline-flex items-center rounded-md px-2 py-0.5 text-caption font-medium',
+                      statusBadge[item.status],
+                    ]}
+                  >
+                    {CONTACT_STATUS_LABELS[item.status]}
+                  </span>
+                  <span class="text-caption text-muted">{formatSentAt(item.createdAt)}</span>
+                </div>
+
+                <p class="mt-1 text-small text-muted">
+                  Phòng:{' '}
+                  <a href={`/quan-ly/phong/${encodeURIComponent(item.roomId)}`} class="link break-words text-ink">
+                    {item.roomTitle}
+                  </a>
+                </p>
+
+                <div class="mt-3 flex flex-wrap gap-2">
+                  <Button href={`tel:${item.renterPhone}`} variant="outline" size="sm">
+                    <Icon name="phone" size={16} />
+                    <span class="tabular-nums">{formatPhone(item.renterPhone)}</span>
+                  </Button>
+                  <Button
+                    href={`https://zalo.me/${item.renterPhone}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    variant="ghost"
+                    size="sm"
+                  >
+                    <Icon name="messageCircle" size={16} />
+                    Nhắn Zalo
+                  </Button>
+                </div>
+
+                {(item.preferredViewingTime || item.message) && (
+                  <dl class="mt-3 grid gap-2 text-small">
+                    {item.preferredViewingTime && (
+                      <div class="flex gap-2">
+                        <dt class="shrink-0 text-muted">
+                          <Icon name="clock" size={16} class="mt-0.5" />
+                          <span class="sr-only">Muốn xem phòng</span>
+                        </dt>
+                        <dd class="min-w-0 break-words">{item.preferredViewingTime}</dd>
+                      </div>
+                    )}
+                    {item.message && (
+                      <div class="flex gap-2">
+                        <dt class="shrink-0 text-muted">
+                          <Icon name="messageCircle" size={16} class="mt-0.5" />
+                          <span class="sr-only">Lời nhắn</span>
+                        </dt>
+                        <dd class="min-w-0 break-words whitespace-pre-line">{item.message}</dd>
+                      </div>
+                    )}
+                  </dl>
+                )}
+              </div>
+
+              <form method="post" action={statusAction} class="flex items-center gap-2">
+                <input type="hidden" name="id" value={item.id} />
+                <label for={statusId} class="sr-only">
+                  Trạng thái yêu cầu của {item.renterName}
+                </label>
+                <ui-select class="relative block min-w-0 flex-1 lg:w-40 lg:flex-none">
+                  <select
+                    id={statusId}
+                    name="status"
+                    class="transition-feedback block min-h-11 w-full appearance-none rounded-lg border border-line bg-paper py-2 pr-9 pl-3 text-small text-ink hover:border-muted"
+                  >
+                    {CONTACT_REQUEST_STATUSES.map((value) => (
+                      <option value={value} selected={value === item.status}>
+                        {CONTACT_STATUS_LABELS[value]}
+                      </option>
+                    ))}
+                  </select>
+                  <svg
+                    data-chevron
+                    class="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.75"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </ui-select>
+                <Button type="submit" variant="outline" size="sm">
+                  Lưu
+                </Button>
+              </form>
+            </li>
+          );
+        })}
+      </ul>
+    )
+  }
+
+  <div class="mt-6">
+    <Pagination page={inbox.page} pageCount={inbox.pageCount} hrefFor={(page) => inboxHref(status, page)} />
+  </div>
+</DashboardLayout>

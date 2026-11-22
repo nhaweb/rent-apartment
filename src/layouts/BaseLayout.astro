@@ -1,0 +1,71 @@
+---
+import '@fontsource/raleway/400.css';
+import '@fontsource/raleway/500.css';
+import '@fontsource/raleway/600.css';
+import '@fontsource/baloo-2/700.css';
+import '../styles/global.css';
+import JsonLd from '../components/seo/JsonLd.astro';
+import type { JsonLd as JsonLdData } from '../lib/seo';
+import { DEFAULT_SHARE_IMAGE, SITE_NAME } from '../lib/site';
+
+interface Props {
+  title: string;
+  description?: string;
+  /** Absolute or root-relative URL of the share image. */
+  image?: string;
+  /** Pixel size of `image`, when known (helps chat apps render the preview). */
+  imageWidth?: number;
+  imageHeight?: number;
+  /** Keep the page out of search results (auth and dashboard pages, filter combinations). */
+  noindex?: boolean;
+  /** Root-relative canonical URL, with the query string worth keeping. Default: the path alone. */
+  canonical?: string;
+  /** `og:type`: `article` for a room page. */
+  ogType?: 'website' | 'article';
+  /** schema.org data (`src/lib/seo.ts`). */
+  jsonLd?: JsonLdData[];
+}
+
+const { title, description, noindex = false, ogType = 'website', jsonLd = [] } = Astro.props;
+// Pages without their own photo share the default image (`npm run icons`).
+const image = Astro.props.image ?? DEFAULT_SHARE_IMAGE.src;
+const imageWidth = Astro.props.image ? Astro.props.imageWidth : DEFAULT_SHARE_IMAGE.width;
+const imageHeight = Astro.props.image ? Astro.props.imageHeight : DEFAULT_SHARE_IMAGE.height;
+// `Astro.site` is PUBLIC_SITE_URL (astro.config.mjs): never the preview or proxy host.
+const canonical = new URL(Astro.props.canonical ?? Astro.url.pathname, Astro.site ?? Astro.url).href;
+const imageUrl = new URL(image, Astro.site ?? Astro.url).href;
+---
+
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" type="image/png" href="/favicon-32.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="generator" content={Astro.generator} />
+    <title>{title}</title>
+    {description && <meta name="description" content={description} />}
+    {noindex && <meta name="robots" content="noindex, follow" />}
+    <link rel="canonical" href={canonical} />
+    <meta property="og:site_name" content={SITE_NAME} />
+    <meta property="og:locale" content="vi_VN" />
+    <meta property="og:type" content={ogType} />
+    <meta property="og:title" content={title} />
+    {description && <meta property="og:description" content={description} />}
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={imageUrl} />
+    {imageWidth && <meta property="og:image:width" content={String(imageWidth)} />}
+    {imageHeight && <meta property="og:image:height" content={String(imageHeight)} />}
+    {jsonLd.length > 0 && <JsonLd data={jsonLd.length === 1 ? jsonLd[0]! : jsonLd} />}
+    <meta name="twitter:card" content="summary_large_image" />
+  </head>
+  <body class="min-h-screen antialiased">
+    <slot />
+    <script>
+      import '../components/ui/motion/init';
+    </script>
+  </body>
+</html>

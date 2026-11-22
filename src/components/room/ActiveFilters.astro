@@ -1,0 +1,70 @@
+---
+/** Removable chips for the filters in use; each chip links to the listing without it. */
+import Icon from '../ui/Icon.astro';
+import { amenityBySlug } from '../../lib/amenities';
+import { placeLabel } from '../../lib/locations';
+import { AREA_RANGE_OPTIONS, PRICE_RANGE_OPTIONS } from '../../lib/room-filter-options';
+import { rangeToParam, roomFiltersToQuery, type RoomFilters } from '../../lib/validation/room-filters';
+import { formatArea, formatPriceShort } from '../../lib/format';
+import type { NumberRange } from '../../lib/validation/room-filters';
+
+interface Props {
+  filters: RoomFilters;
+}
+
+const { filters } = Astro.props;
+
+/** Preset label, or a generated one for a hand-edited range. */
+function rangeLabel(range: NumberRange, presets: { value: string; label: string }[], format: (n: number) => string) {
+  const preset = presets.find((option) => option.value === rangeToParam(range));
+  if (preset) return preset.label;
+  if (range.min !== undefined && range.max !== undefined) return `${format(range.min)} – ${format(range.max)}`;
+  return range.min !== undefined ? `Từ ${format(range.min)}` : `Dưới ${format(range.max ?? 0)}`;
+}
+
+const href = (next: Partial<RoomFilters>) => `/phong${roomFiltersToQuery({ ...filters, ...next, page: 1 })}`;
+
+const chips = [
+  filters.place && {
+    label: placeLabel(filters.place) ?? filters.place,
+    href: href({ place: undefined }),
+  },
+  filters.price && {
+    label: rangeLabel(filters.price, PRICE_RANGE_OPTIONS, formatPriceShort),
+    href: href({ price: undefined }),
+  },
+  filters.area && {
+    label: rangeLabel(filters.area, AREA_RANGE_OPTIONS, formatArea),
+    href: href({ area: undefined }),
+  },
+  ...filters.amenities.map((slug) => ({
+    label: amenityBySlug(slug)?.label ?? slug,
+    href: href({ amenities: filters.amenities.filter((other) => other !== slug) }),
+  })),
+].filter((chip): chip is { label: string; href: string } => Boolean(chip));
+---
+
+{
+  chips.length > 0 && (
+    <ul class="flex flex-wrap items-center gap-2" aria-label="Bộ lọc đang dùng">
+      {chips.map((chip) => (
+        <li>
+          <a
+            href={chip.href}
+            class="transition-feedback inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-ink bg-paper py-1 pr-2.5 pl-3.5 text-small hover:bg-surface"
+          >
+            {chip.label}
+            <Icon name="x" size={14} label="Bỏ lọc" />
+          </a>
+        </li>
+      ))}
+      {chips.length > 1 && (
+        <li>
+          <a href="/phong" class="link inline-flex min-h-11 items-center px-1 text-small font-medium">
+            Xóa tất cả
+          </a>
+        </li>
+      )}
+    </ul>
+  )
+}

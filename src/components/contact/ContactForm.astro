@@ -1,0 +1,96 @@
+---
+/**
+ * Renter contact / viewing request form (zero JS). Posts to the
+ * `createContactRequest` action; the room page redirects on success
+ * (`?da-gui=1#lien-he`) and re-renders with `values` / `errors` on failure.
+ * Field names and limits mirror `contactFormSchema`.
+ */
+import { actions } from 'astro:actions';
+import Button from '../ui/Button.astro';
+import FormAlert from '../ui/FormAlert.astro';
+import Input from '../ui/Input.astro';
+import type { FormErrors } from '../../lib/form-errors';
+import { CONTACT_HONEYPOT_FIELD } from '../../lib/validation/contact-request';
+import { VN_PHONE_INPUT_PATTERN, VN_PHONE_INPUT_TITLE } from '../../lib/validation/phone';
+
+interface Props {
+  roomId: string;
+  /** Submitted values to keep after a failed submit. */
+  values?: Record<string, string>;
+  errors?: FormErrors;
+  /** The request was just sent. */
+  sent?: boolean;
+}
+
+const { roomId, values = {}, errors = { fields: {} }, sent = false } = Astro.props;
+---
+
+{
+  sent && (
+    <FormAlert tone="info" class="mb-4">
+      Đã gửi yêu cầu. Chủ phòng sẽ gọi lại cho bạn qua số điện thoại bạn đã nhập.
+    </FormAlert>
+  )
+}
+{errors.form && <FormAlert class="mb-4">{errors.form}</FormAlert>}
+
+<form method="post" action={`${actions.createContactRequest}#lien-he`} class="grid gap-4" aria-describedby="contact-note">
+  <input type="hidden" name="roomId" value={roomId} />
+  <!-- Honeypot: hidden from people and assistive tech; bots that fill every field are ignored. -->
+  <div class="sr-only" aria-hidden="true">
+    <label for="contact-website">Trang web</label>
+    <input id="contact-website" name={CONTACT_HONEYPOT_FIELD} type="text" tabindex="-1" autocomplete="off" />
+  </div>
+  <Input
+    id="contact-name"
+    label="Họ và tên"
+    name="renterName"
+    type="text"
+    required
+    maxlength={100}
+    autocomplete="name"
+    value={values.renterName}
+    error={errors.fields.renterName}
+  />
+  <Input
+    id="contact-phone"
+    label="Số điện thoại"
+    name="renterPhone"
+    type="tel"
+    required
+    inputmode="tel"
+    autocomplete="tel"
+    pattern={VN_PHONE_INPUT_PATTERN}
+    title={VN_PHONE_INPUT_TITLE}
+    value={values.renterPhone}
+    error={errors.fields.renterPhone}
+  />
+  <Input
+    id="contact-time"
+    label="Khi nào bạn xem phòng được?"
+    optional
+    name="preferredViewingTime"
+    type="text"
+    maxlength={100}
+    placeholder="Chiều thứ Bảy, sau 17h"
+    value={values.preferredViewingTime}
+    error={errors.fields.preferredViewingTime}
+  />
+  <Input
+    id="contact-message"
+    label="Lời nhắn"
+    optional
+    as="textarea"
+    name="message"
+    rows={3}
+    maxlength={1000}
+    placeholder="Ở mấy người, dự định thuê bao lâu..."
+    value={values.message}
+    error={errors.fields.message}
+  />
+  <Button type="submit" class="w-full">Gửi yêu cầu xem phòng</Button>
+  <p id="contact-note" class="text-small text-muted">
+    Chủ phòng nhận yêu cầu và gọi lại cho bạn qua số điện thoại này. Bạn không cần tạo tài khoản. Khi gửi, bạn đồng ý
+    với <a href="/chinh-sach-bao-mat" class="link">Chính sách bảo mật</a>.
+  </p>
+</form>

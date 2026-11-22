@@ -1,0 +1,44 @@
+# Fly.io production (CLAUDE.md "Deploy"). Rename `app` before `fly launch --copy-config`.
+#
+# Secrets (runtime only):
+#   fly secrets set DATABASE_URL=... BETTER_AUTH_SECRET=... \
+#     R2_ACCOUNT_ID=... R2_ACCESS_KEY_ID=... R2_SECRET_ACCESS_KEY=... R2_BUCKET=... \
+#     EMAIL_TRANSPORT=gmail GMAIL_USER=... GMAIL_APP_PASSWORD=... (later: EMAIL_TRANSPORT=resend RESEND_API_KEY=... EMAIL_FROM=...) \
+#     GEMINI_API_KEY=... ALLOW_INDEXING=true
+# See .env.example for the full list.
+
+app = "pml-home"
+primary_region = "sin"
+
+[build]
+  dockerfile = "Dockerfile"
+
+  # Inlined into the client bundle at build time: set them before deploying.
+  [build.args]
+    PUBLIC_SITE_URL = "https://example.invalid"
+    PUBLIC_IMAGE_BASE_URL = "https://images.example.invalid"
+    # PUBLIC_MAP_STYLE_URL = ""
+
+[env]
+  # Fly's proxy sets this header; without it every visitor shares one rate-limit bucket.
+  CLIENT_IP_HEADER = "fly-client-ip"
+  PORT = "8080"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    # No database call, so a DB hiccup does not restart the machine.
+    method = "GET"
+    path = "/robots.txt"
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "20s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

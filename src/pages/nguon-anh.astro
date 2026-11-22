@@ -1,0 +1,28 @@
+---
+import PublicLayout from '../layouts/PublicLayout.astro';
+import { setPublicCache } from '../lib/http-cache';
+import { getPhotoCredits } from '../lib/photos';
+import { SITE_NAME } from '../lib/site';
+
+const credits = getPhotoCredits();
+setPublicCache(Astro, 3600);
+---
+
+<PublicLayout title={`Nguồn ảnh | ${SITE_NAME}`} description="Tác giả và giấy phép của các ảnh dùng trên trang.">
+  <section class="wrap pt-10 sm:pt-14" aria-labelledby="credits-heading">
+    <h1 id="credits-heading" class="text-display">Nguồn ảnh</h1>
+    <p class="mt-3 max-w-xl text-muted">Các ảnh dưới đây lấy từ Wikimedia Commons, dùng theo giấy phép của từng tác giả.</p>
+    <ul class="mt-8 divide-y divide-line border-y border-line">
+      {
+        credits.map((credit) => (
+          <li class="flex flex-wrap items-center justify-between gap-x-6 gap-y-1 py-3">
+            <a href={credit.url} class="link inline-flex min-h-11 items-center" rel="noopener">
+              {credit.author}
+            </a>
+            <span class="text-small text-muted">{credit.licence}</span>
+          </li>
+        ))
+      }
+    </ul>
+  </section>
+</PublicLayout>

@@ -1,0 +1,54 @@
+---
+import { actions } from 'astro:actions';
+import PublicLayout from '../layouts/PublicLayout.astro';
+import AuthCard from '../components/auth/AuthCard.astro';
+import Button from '../components/ui/Button.astro';
+import FormAlert from '../components/ui/FormAlert.astro';
+import Input from '../components/ui/Input.astro';
+import { submittedValues } from '../lib/auth';
+import { formErrors } from '../lib/form-errors';
+import { SITE_NAME } from '../lib/site';
+
+export const prerender = false;
+
+const result = Astro.getActionResult(actions.requestPasswordReset);
+const sent = Boolean(result && !result.error);
+const values = await submittedValues(Astro.request);
+const errors = formErrors(result?.error);
+---
+
+<PublicLayout title={`Quên mật khẩu | ${SITE_NAME}`} headerSearch={false} noindex>
+  <AuthCard
+    title="Quên mật khẩu"
+    description={sent ? undefined : 'Nhập email đã đăng ký. Chúng tôi gửi cho bạn liên kết để đặt mật khẩu mới.'}
+  >
+    {
+      sent ? (
+        <FormAlert tone="info">
+          Nếu email <span class="font-medium">{values.email}</span> đã đăng ký, bạn sẽ nhận được liên kết đặt lại mật
+          khẩu trong vài phút. Liên kết có hiệu lực trong 1 giờ. Nhớ kiểm tra cả thư mục spam.
+        </FormAlert>
+      ) : (
+        <>
+          {errors.form && <FormAlert class="mb-5">{errors.form}</FormAlert>}
+          <form method="post" action={actions.requestPasswordReset} class="grid gap-4">
+            <Input
+              id="forgot-email"
+              label="Email"
+              name="email"
+              type="email"
+              required
+              autocomplete="email"
+              value={values.email}
+              error={errors.fields.email}
+            />
+            <Button type="submit" class="mt-2 w-full">Gửi liên kết</Button>
+          </form>
+        </>
+      )
+    }
+    <Fragment slot="footer">
+      <a href="/dang-nhap" class="link font-medium text-accent">Quay lại đăng nhập</a>
+    </Fragment>
+  </AuthCard>
+</PublicLayout>

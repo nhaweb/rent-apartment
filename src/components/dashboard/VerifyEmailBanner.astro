@@ -1,0 +1,35 @@
+---
+/**
+ * Shown on every dashboard page while the landlord's email is unverified:
+ * rooms cannot be made "available" until then. The resend form posts to the
+ * overview page, which handles the result (PRG) and shows the outcome.
+ */
+import { actions } from 'astro:actions';
+import Button from '../ui/Button.astro';
+import Icon from '../ui/Icon.astro';
+
+interface Props {
+  email: string;
+}
+
+const { email } = Astro.props;
+---
+
+<section
+  aria-labelledby="verify-email-heading"
+  class="mb-6 flex flex-col gap-3 rounded-card border border-line bg-surface p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5"
+>
+  <div class="flex gap-3">
+    <Icon name="mail" size={22} class="mt-0.5 shrink-0 text-accent" />
+    <div>
+      <h2 id="verify-email-heading" class="font-medium">Xác thực email để đăng phòng công khai</h2>
+      <p class="mt-1 text-small text-muted">
+        Mở liên kết chúng tôi đã gửi tới <span class="break-all text-ink">{email}</span>. Trước khi xác thực, bạn vẫn
+        tạo phòng và thêm ảnh được, nhưng phòng chỉ ở trạng thái “Đang ẩn”.
+      </p>
+    </div>
+  </div>
+  <form method="post" action={`/quan-ly${actions.resendVerificationEmail}`} class="shrink-0">
+    <Button type="submit" variant="outline" size="sm">Gửi lại email</Button>
+  </form>
+</section>

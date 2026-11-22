@@ -1,0 +1,67 @@
+---
+/**
+ * A titled row of rooms. Phones swipe sideways (scroll-snap); md+ shows a
+ * single grid line of 4 (xl: 5) and the "Xem tất cả" link covers the rest.
+ * Zero JS.
+ */
+import RoomCard from './RoomCard.astro';
+import Icon from '../ui/Icon.astro';
+import type { Room } from '../../types';
+
+interface Props {
+  id: string;
+  title: string;
+  /** One line under the title. */
+  subtitle?: string;
+  /** Link to the full, filtered listing. */
+  href?: string;
+  rooms: Room[];
+  /** The first row on a page loads its first photos eagerly. */
+  eager?: boolean;
+}
+
+const { id, title, subtitle, href, rooms, eager = false } = Astro.props;
+---
+
+<section aria-labelledby={id} class="min-w-0">
+  <div class="flex items-end justify-between gap-4">
+    <div class="min-w-0">
+      <h2 id={id} class="text-title">
+        {
+          href ? (
+            <a href={href} class="link inline-flex items-center gap-1">
+              {title}
+              <Icon name="chevronRight" size={20} />
+            </a>
+          ) : (
+            title
+          )
+        }
+      </h2>
+      {subtitle && <p class="mt-0.5 text-small text-muted">{subtitle}</p>}
+    </div>
+    {
+      href && (
+        <a href={href} class="link hidden min-h-11 shrink-0 items-center text-small font-medium sm:inline-flex">
+          Xem tất cả
+        </a>
+      )
+    }
+  </div>
+  <ul
+    class="scrollbar-none -mx-4 mt-4 grid snap-x snap-mandatory scroll-px-4 auto-cols-[72%] grid-flow-col gap-4 overflow-x-auto px-4 sm:-mx-6 sm:scroll-px-6 sm:auto-cols-[42%] sm:px-6 md:mx-0 md:grid-flow-row md:grid-cols-4 md:gap-x-5 md:gap-y-0 md:overflow-visible md:px-0 xl:grid-cols-5 md:max-xl:[&>li:nth-child(n+5)]:hidden xl:[&>li:nth-child(n+6)]:hidden"
+  >
+    {
+      rooms.map((room, index) => (
+        <li class="snap-start">
+          <RoomCard
+            room={room}
+            compact
+            eager={eager && index < 2}
+            sizes="(min-width: 80rem) 240px, (min-width: 48rem) 25vw, (min-width: 40rem) 42vw, 72vw"
+          />
+        </li>
+      ))
+    }
+  </ul>
+</section>

@@ -1,0 +1,37 @@
+---
+/**
+ * Opens the "Bộ lọc" panel (`RoomFilters`, popover `#filter-sheet`) and shows
+ * how many filters are on (orange badge). Several can point at the same panel.
+ */
+import Icon from '../ui/Icon.astro';
+import type { RoomFilters } from '../../lib/validation/room-filters';
+
+interface Props {
+  filters: RoomFilters;
+  class?: string;
+}
+
+const { filters, class: className } = Astro.props;
+const activeCount = [filters.place, filters.price, filters.area].filter(Boolean).length + filters.amenities.length;
+---
+
+<button
+  type="button"
+  popovertarget="filter-sheet"
+  data-press
+  class:list={[
+    'transition-feedback inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg border border-line bg-paper pr-4 pl-3.5 text-small font-medium hover:border-ink',
+    className,
+  ]}
+>
+  <Icon name="sliders" size={18} />
+  <span>Bộ lọc</span>
+  {
+    activeCount > 0 && (
+      <span class="grid size-5 place-items-center rounded-full bg-highlight text-caption font-medium text-ink">
+        {activeCount}
+        <span class="sr-only">bộ lọc đang bật</span>
+      </span>
+    )
+  }
+</button>

@@ -1,0 +1,30 @@
+---
+/** Create a room (starts hidden). Saves through `actions.createRoom`, then opens its photo section. */
+import { actions } from 'astro:actions';
+import DashboardLayout from '../../../layouts/DashboardLayout.astro';
+import RoomForm from '../../../components/room/RoomForm.astro';
+import { getCurrentLandlord } from '../../../lib/auth';
+import { formErrors } from '../../../lib/form-errors';
+import { EMPTY_ROOM_FORM, submittedRoomFormValues } from '../../../lib/room-form';
+import { getWardCenters } from '../../../lib/rooms';
+
+export const prerender = false;
+
+// The middleware already requires a session; checked again here (defense in depth).
+if (!(await getCurrentLandlord(Astro))) return Astro.redirect('/dang-nhap', 303);
+
+const result = Astro.getActionResult(actions.createRoom);
+// A room needs photos before it can go public: continue straight to them.
+if (result && !result.error) return Astro.redirect(`/quan-ly/phong/${encodeURIComponent(result.data.id)}?moi=1#anh`, 303);
+
+const values = (await submittedRoomFormValues(Astro.request)) ?? EMPTY_ROOM_FORM;
+const errors = formErrors(result?.error);
+const wardCenters = await getWardCenters();
+---
+
+<DashboardLayout title="Đăng phòng mới">
+  <a href="/quan-ly/phong" class="link inline-flex min-h-11 items-center text-small text-muted">Phòng của tôi</a>
+  <h1 class="text-display font-medium">Đăng phòng mới</h1>
+  <p class="mt-2 mb-6 text-muted">Điền thông tin phòng. Bạn sửa lại được bất cứ lúc nào.</p>
+  <RoomForm action={actions.createRoom} values={values} errors={errors} submitLabel="Lưu và thêm ảnh" wardCenters={wardCenters} />
+</DashboardLayout>

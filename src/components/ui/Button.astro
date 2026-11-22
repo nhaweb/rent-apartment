@@ -1,0 +1,46 @@
+---
+/**
+ * Button. Renders an <a> when `href` is set, otherwise a <button>.
+ * One `primary` per screen; other actions use `outline` or `ghost`.
+ * `danger` (outline in the danger color) only to confirm a destructive action.
+ */
+import type { HTMLAttributes } from 'astro/types';
+
+type Props = Omit<HTMLAttributes<'a'> & HTMLAttributes<'button'>, 'class'> & {
+  variant?: 'primary' | 'outline' | 'ghost' | 'danger';
+  size?: 'md' | 'sm';
+  class?: string;
+};
+
+const { variant = 'primary', size = 'md', href, type, class: className, ...rest } = Astro.props;
+
+const Tag = href ? 'a' : 'button';
+
+const variants = {
+  primary: 'bg-accent text-paper hover:bg-accent-strong active:bg-accent-strong',
+  outline: 'border border-line bg-paper text-ink hover:border-ink active:bg-surface',
+  ghost: 'text-ink hover:bg-surface active:bg-line',
+  danger: 'border border-danger bg-paper text-danger hover:bg-surface active:bg-line',
+};
+
+const sizes = {
+  md: 'px-5 text-body',
+  sm: 'px-4 text-small',
+};
+---
+
+<Tag
+  href={href}
+  type={Tag === 'button' ? (type ?? 'button') : undefined}
+  data-press
+  class:list={[
+    'transition-feedback inline-flex min-h-11 items-center justify-center gap-2 rounded-lg font-medium',
+    'disabled:pointer-events-none disabled:border-line disabled:bg-surface disabled:text-muted',
+    variants[variant],
+    sizes[size],
+    className,
+  ]}
+  {...rest}
+>
+  <slot />
+</Tag>

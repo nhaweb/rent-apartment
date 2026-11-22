@@ -1,0 +1,178 @@
+---
+/**
+ * Segmented search bar. md+: a bar of three selects and a search button.
+ * Phones: a button that opens a full-screen sheet (native popover, no JS).
+ * Plain GET into /phong; GetForm keeps the URL clean when JS runs.
+ */
+import Button from '../ui/Button.astro';
+import GetForm from '../ui/GetForm.astro';
+import Icon from '../ui/Icon.astro';
+import Select from '../ui/Select.astro';
+import { SITE_CITY } from '../../lib/site';
+import { placeLabel } from '../../lib/locations';
+import type { WardOption } from '../../lib/rooms';
+import { AREA_RANGE_OPTIONS, PRICE_RANGE_OPTIONS } from '../../lib/room-filter-options';
+import { ROOM_FILTER_PARAMS, rangeToParam, type RoomFilters } from '../../lib/validation/room-filters';
+
+interface Props {
+  wards: WardOption[];
+  /** Current listing filters, to prefill the fields and keep amenities and sort. */
+  filters?: RoomFilters;
+  /** `lg`: the large home search. `md`: compact, inside the header row. */
+  size?: 'lg' | 'md';
+}
+
+const { wards, filters, size = 'md' } = Astro.props;
+const place = filters?.place ?? '';
+const price = rangeToParam(filters?.price);
+const area = rangeToParam(filters?.area);
+const keep = {
+  amenities: filters?.amenities.join(',') ?? '',
+  sort: filters?.sort && filters.sort !== 'moi-nhat' ? filters.sort : '',
+};
+
+const placeName = place ? placeLabel(place) : undefined;
+const priceLabel = PRICE_RANGE_OPTIONS.find((option) => option.value === price)?.label;
+const areaLabel = AREA_RANGE_OPTIONS.find((option) => option.value === area)?.label;
+const summary = [placeName ?? `Cả ${SITE_CITY}`, priceLabel ?? 'Mọi mức giá', areaLabel ?? 'Mọi diện tích'].join(' · ');
+
+const segments = [
+  {
+    id: `${size}-search-place`,
+    label: 'Khu vực',
+    name: ROOM_FILTER_PARAMS.place,
+    empty: `Cả ${SITE_CITY}`,
+    value: place,
+    // Each ward, then its neighborhoods (`Ghềnh Ráng, P. Quy Nhơn Nam`): flat, so the custom listbox shows them all.
+    options: wards.flatMap((ward) => [ward, ...ward.neighborhoods].map((option) => ({ value: option.slug, label: option.label }))),
+  },
+  {
+    id: `${size}-search-price`,
+    label: 'Giá thuê',
+    name: ROOM_FILTER_PARAMS.price,
+    empty: 'Mọi mức giá',
+    value: price,
+    options: PRICE_RANGE_OPTIONS,
+  },
+  {
+    id: `${size}-search-area`,
+    label: 'Diện tích',
+    name: ROOM_FILTER_PARAMS.area,
+    empty: 'Mọi diện tích',
+    value: area,
+    options: AREA_RANGE_OPTIONS,
+  },
+];
+const lg = size === 'lg';
+const sheetId = `${size}-search-sheet`;
+---
+
+<!-- md+: inline pill -->
+<GetForm class:list={['hidden md:block', lg ? 'w-full max-w-3xl' : 'w-full max-w-xl']}>
+  <form
+    action="/phong"
+    method="get"
+    role="search"
+    aria-label="Tìm phòng"
+    class="flex items-center rounded-card border border-line bg-paper shadow-float"
+  >
+    {keep.amenities && <input type="hidden" name={ROOM_FILTER_PARAMS.amenities} value={keep.amenities} />}
+    {keep.sort && <input type="hidden" name={ROOM_FILTER_PARAMS.sort} value={keep.sort} />}
+    {
+      segments.map((segment, index) => (
+        <ui-select class:list={['relative block min-w-0 flex-1', index > 0 && 'border-l border-line']}>
+          <label
+            for={segment.id}
+            class:list={[
+              'pointer-events-none absolute left-6 text-caption font-medium text-ink',
+              lg ? 'top-3' : 'sr-only',
+            ]}
+          >
+            {segment.label}
+          </label>
+          <select
+            id={segment.id}
+            name={segment.name}
+            class:list={[
+              'transition-feedback block w-full cursor-pointer appearance-none truncate rounded-lg bg-transparent pr-4 pl-6 text-small hover:bg-surface',
+              lg ? 'h-16 pt-5 text-muted' : 'h-12 font-medium text-ink',
+            ]}
+          >
+            <option value="">{segment.empty}</option>
+            {segment.options.map((option) => (
+              <option value={option.value} selected={option.value === segment.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </ui-select>
+      ))
+    }
+    <div class="py-2 pr-2 pl-1">
+      <button
+        type="submit"
+        aria-label="Tìm phòng"
+        data-press
+        class:list={[
+          'transition-feedback grid place-items-center rounded-lg',
+          lg ? 'size-12 bg-accent text-paper hover:bg-accent-strong' : 'size-9 bg-ink text-inv-ink hover:bg-accent-strong',
+        ]}
+      >
+        <Icon name="search" size={lg ? 20 : 16} />
+      </button>
+    </div>
+  </form>
+</GetForm>
+
+<!-- Phones: pill button + full-screen sheet -->
+<button
+  type="button"
+  popovertarget={sheetId}
+  data-press
+  class="transition-feedback flex min-h-12 w-full min-w-0 items-center gap-3 rounded-lg border border-line bg-paper px-4 py-1.5 text-left shadow-float hover:border-muted md:hidden"
+>
+  <Icon name="search" size={18} />
+  <span class="min-w-0 leading-tight">
+    <span class="block text-small font-medium text-ink">Tìm phòng ở {SITE_CITY}</span>
+    <span class="block truncate text-caption text-muted">{summary}</span>
+  </span>
+</button>
+
+<div id={sheetId} popover data-motion="sheet" class="glass-strong fixed inset-0 h-dvh w-full max-w-none overflow-y-auto md:hidden" aria-label="Tìm phòng">
+  <div class="flex h-14 items-center justify-between border-b border-line px-2">
+    <button
+      type="button"
+      popovertarget={sheetId}
+      popovertargetaction="hide"
+      data-press
+      aria-label="Đóng"
+      class="transition-feedback grid size-11 place-items-center rounded-full hover:bg-surface"
+    >
+      <Icon name="x" />
+    </button>
+    <p class="font-medium">Tìm phòng</p>
+    <span class="size-11" aria-hidden="true"></span>
+  </div>
+  <GetForm class="p-4">
+    <form action="/phong" method="get" role="search" aria-label="Tìm phòng" class="grid gap-4">
+      {keep.amenities && <input type="hidden" name={ROOM_FILTER_PARAMS.amenities} value={keep.amenities} />}
+      {keep.sort && <input type="hidden" name={ROOM_FILTER_PARAMS.sort} value={keep.sort} />}
+      {
+        segments.map((segment) => (
+          <Select id={`sheet-${segment.id}`} label={segment.label} name={segment.name}>
+            <option value="">{segment.empty}</option>
+            {segment.options.map((option) => (
+              <option value={option.value} selected={option.value === segment.value}>
+                {option.label}
+              </option>
+            ))}
+          </Select>
+        ))
+      }
+      <Button type="submit" class="mt-2 w-full">
+        <Icon name="search" size={18} />
+        Tìm phòng
+      </Button>
+    </form>
+  </GetForm>
+</div>

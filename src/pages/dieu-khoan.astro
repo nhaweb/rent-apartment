@@ -1,0 +1,83 @@
+---
+/**
+ * Terms of use. DRAFT wording: have the owner review it before going live.
+ */
+import { CONTACT_EMAIL } from 'astro:env/server';
+import PublicLayout from '../layouts/PublicLayout.astro';
+import { setPublicCache } from '../lib/http-cache';
+import { SITE_NAME } from '../lib/site';
+
+const UPDATED = '23/11/2026';
+setPublicCache(Astro, 3600);
+
+const h2 = 'mt-10 text-title font-medium';
+const p = 'mt-3 text-ink';
+const ul = 'mt-3 list-disc space-y-2 pl-5 text-ink';
+---
+
+<PublicLayout
+  title={`Điều khoản sử dụng | ${SITE_NAME}`}
+  description={`Quy định khi xem phòng, gửi yêu cầu và đăng tin trên ${SITE_NAME}.`}
+>
+  <article class="wrap max-w-3xl pt-10 sm:pt-14" aria-labelledby="terms-heading">
+    <h1 id="terms-heading" class="text-display">Điều khoản sử dụng</h1>
+    <p class="mt-2 text-small text-muted">Cập nhật ngày {UPDATED}</p>
+    <p class={p}>
+      Khi dùng {SITE_NAME}, bạn đồng ý với các điều khoản dưới đây và với
+      <a href="/chinh-sach-bao-mat" class="link">Chính sách bảo mật</a>.
+    </p>
+
+    <h2 class={h2}>1. Vai trò của {SITE_NAME}</h2>
+    <p class={p}>
+      {SITE_NAME} là nơi chủ phòng tự đăng tin cho thuê và người thuê gửi yêu cầu xem phòng. Chúng tôi không phải bên cho
+      thuê hay môi giới, không tham gia ký hợp đồng, nhận cọc hay thu tiền thuê. Hãy xem phòng trực tiếp và kiểm tra giấy
+      tờ trước khi đặt cọc.
+    </p>
+
+    <h2 class={h2}>2. Với chủ phòng</h2>
+    <ul class={ul}>
+      <li>Chỉ đăng phòng bạn có quyền cho thuê, với giá, ảnh và mô tả đúng thực tế.</li>
+      <li>Chỉ dùng ảnh do bạn chụp hoặc được phép dùng.</li>
+      <li>Cập nhật trạng thái “Đã cho thuê” hoặc ẩn tin khi phòng không còn trống.</li>
+      <li>
+        Chỉ dùng thông tin của người thuê (tên, số điện thoại) để liên hệ về phòng họ hỏi; không chia sẻ cho bên khác.
+      </li>
+      <li>Giữ bí mật mật khẩu; bạn chịu trách nhiệm về hoạt động trong tài khoản của mình.</li>
+    </ul>
+
+    <h2 class={h2}>3. Với người thuê</h2>
+    <ul class={ul}>
+      <li>Nhập đúng họ tên và số điện thoại của chính bạn khi gửi yêu cầu.</li>
+      <li>Không gửi yêu cầu hàng loạt, quấy rối hay quảng cáo.</li>
+    </ul>
+
+    <h2 class={h2}>4. Nội dung bị cấm</h2>
+    <p class={p}>
+      Tin giả, phòng không có thật, lừa đảo đặt cọc, nội dung vi phạm pháp luật hoặc xâm phạm quyền của người khác. Chúng
+      tôi có thể ẩn hoặc xóa tin và khóa tài khoản vi phạm mà không cần báo trước.
+    </p>
+
+    <h2 class={h2}>5. Trợ lý tìm phòng</h2>
+    <p class={p}>
+      Trợ lý dùng AI để gợi ý phòng từ các tin đang đăng. Câu trả lời có thể chưa chính xác; thông tin trên trang chi tiết
+      phòng và lời của chủ phòng là căn cứ cuối cùng.
+    </p>
+
+    <h2 class={h2}>6. Giới hạn trách nhiệm</h2>
+    <p class={p}>
+      Thông tin phòng do chủ phòng cung cấp. {SITE_NAME} không bảo đảm tính chính xác của tin đăng và không chịu trách
+      nhiệm về giao dịch giữa chủ phòng và người thuê.
+    </p>
+
+    <h2 class={h2}>7. Liên hệ</h2>
+    <p class={p}>
+      Báo tin vi phạm hoặc thắc mắc về điều khoản:
+      {CONTACT_EMAIL ? (
+        <a href={`mailto:${CONTACT_EMAIL}`} class="link break-all">{CONTACT_EMAIL}</a>
+      ) : (
+        'qua thông tin liên hệ trên trang'
+      )}
+      .
+    </p>
+  </article>
+</PublicLayout>

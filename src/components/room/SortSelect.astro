@@ -1,0 +1,66 @@
+---
+/** Sort order for the listing. Applies on change with JS; a button covers no-JS. */
+import GetForm from '../ui/GetForm.astro';
+import {
+  ROOM_FILTER_PARAMS,
+  rangeToParam,
+  type RoomFilters,
+  type RoomSort,
+} from '../../lib/validation/room-filters';
+
+interface Props {
+  filters: RoomFilters;
+}
+
+const { filters } = Astro.props;
+
+const SORT_LABELS: Record<RoomSort, string> = {
+  'moi-nhat': 'Mới đăng nhất',
+  'gia-thap': 'Giá thấp đến cao',
+  'gia-cao': 'Giá cao đến thấp',
+  'rong-nhat': 'Diện tích lớn nhất',
+};
+
+const hidden = [
+  [ROOM_FILTER_PARAMS.place, filters.place ?? ''],
+  [ROOM_FILTER_PARAMS.price, rangeToParam(filters.price)],
+  [ROOM_FILTER_PARAMS.area, rangeToParam(filters.area)],
+  [ROOM_FILTER_PARAMS.amenities, filters.amenities.join(',')],
+].filter(([, value]) => value);
+---
+
+<GetForm auto>
+  <form action="/phong" method="get" class="flex items-center gap-2">
+    {hidden.map(([name, value]) => <input type="hidden" name={name} value={value} />)}
+    <label for="sort" class="text-small whitespace-nowrap text-muted">Sắp xếp</label>
+    <ui-select class="relative block">
+      <select
+        id="sort"
+        name={ROOM_FILTER_PARAMS.sort}
+        class="transition-feedback min-h-11 cursor-pointer appearance-none rounded-lg border border-transparent bg-transparent py-2 pr-8 pl-2 text-small font-medium text-ink hover:border-line"
+      >
+        {
+          Object.entries(SORT_LABELS).map(([value, label]) => (
+            <option value={value} selected={value === filters.sort}>
+              {label}
+            </option>
+          ))
+        }
+      </select>
+      <svg
+        data-chevron
+        class="pointer-events-none absolute top-1/2 right-2 size-4 -translate-y-1/2 text-muted"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.75"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <path d="m6 9 6 6 6-6"></path>
+      </svg>
+    </ui-select>
+    <button type="submit" data-no-js class="link min-h-11 text-small font-medium">Áp dụng</button>
+  </form>
+</GetForm>

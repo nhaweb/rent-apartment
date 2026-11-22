@@ -1,0 +1,83 @@
+---
+/**
+ * "Ảnh phòng" on the edit page: pick or drop photos, per-file progress and
+ * retry, drag (or arrow buttons) to reorder, first photo = cover, delete.
+ * Logic: `photo-manager.ts`. Uploads go from the browser straight to R2.
+ * Needs JS; without it the saved photos are shown read-only.
+ */
+import Icon from '../../ui/Icon.astro';
+import Button from '../../ui/Button.astro';
+import PhotoTile from './PhotoTile.astro';
+import type { RoomPhoto, RoomStatus } from '../../../types';
+import { ACCEPT_ATTRIBUTE, MAX_PHOTOS_PER_ROOM } from '../../../lib/photo-rules';
+
+interface Props {
+  roomId: string;
+  photos: RoomPhoto[];
+  status: RoomStatus;
+}
+
+const { roomId, photos, status } = Astro.props;
+const dialogId = 'photo-delete-dialog';
+---
+
+<photo-manager data-room-id={roomId} data-status={status} class="block">
+  <div class="flex flex-wrap items-baseline justify-between gap-2">
+    <h2 id="room-photos-heading" class="text-title font-medium">Ảnh phòng</h2>
+    <p class="text-small text-muted tabular-nums"><span data-count>{photos.length}</span>/{MAX_PHOTOS_PER_ROOM} ảnh</p>
+  </div>
+  <p class="mt-1 text-small text-muted">Ảnh đầu tiên là ảnh bìa. Kéo ảnh, hoặc dùng nút mũi tên, để đổi thứ tự.</p>
+
+  <noscript>
+    <p class="mt-4 rounded-lg border border-line bg-surface px-4 py-3 text-small">Cần bật JavaScript để thêm, sắp xếp hoặc xóa ảnh.</p>
+  </noscript>
+
+  <ul data-list class="mt-4 grid gap-2 empty:hidden sm:grid-cols-2 sm:gap-3 lg:grid-cols-3" aria-label="Ảnh đã tải lên">
+    {photos.map((photo, index) => <PhotoTile photo={photo} index={index} />)}
+  </ul>
+
+  <div
+    data-dropzone
+    hidden
+    class="mt-4 grid place-items-center gap-2 rounded-lg border border-dashed border-line bg-surface px-4 py-8 text-center data-over:border-accent data-over:bg-accent-soft"
+  >
+    <Icon name="imagePlus" size={28} class="text-muted" />
+    <p class="font-medium"><span class="hidden md:inline">Kéo thả ảnh vào đây, hoặc </span>chọn ảnh từ máy</p>
+    <p class="text-small text-muted">JPG, PNG, WebP hoặc HEIC · tối đa 15 MB mỗi ảnh · tối đa {MAX_PHOTOS_PER_ROOM} ảnh</p>
+    <label class="mt-2">
+      <input data-input type="file" multiple accept={ACCEPT_ATTRIBUTE} class="peer sr-only" />
+      <span
+        data-press
+        class="transition-feedback inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-line bg-paper px-5 font-medium text-ink peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent hover:border-ink"
+      >
+        <Icon name="plus" size={18} />
+        Chọn ảnh
+      </span>
+    </label>
+  </div>
+
+  <p data-notice role="status" aria-live="polite" class="mt-3 text-small empty:hidden"></p>
+
+  <template data-tile-template><PhotoTile /></template>
+
+  <div
+    id={dialogId}
+    popover
+    data-motion="sheet"
+    role="dialog"
+    aria-labelledby={`${dialogId}-title`}
+    class="glass-strong fixed inset-0 m-auto h-fit w-[calc(100%-2rem)] max-w-sm rounded-card border border-line p-5 shadow-float"
+  >
+    <h2 id={`${dialogId}-title`} class="text-title font-medium">Xóa ảnh này?</h2>
+    <p class="mt-2 text-small text-muted">Ảnh sẽ bị xóa vĩnh viễn.</p>
+    <p data-last-warning class="mt-2 text-small text-danger" hidden></p>
+    <div class="mt-5 flex flex-wrap justify-end gap-2">
+      <Button variant="ghost" size="sm" popovertarget={dialogId} popovertargetaction="hide">Hủy</Button>
+      <Button variant="danger" size="sm" data-confirm-delete>Xóa ảnh</Button>
+    </div>
+  </div>
+</photo-manager>
+
+<script>
+  import './photo-manager';
+</script>

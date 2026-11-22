@@ -1,0 +1,82 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import Icon from '../components/ui/Icon.astro';
+import Toast from '../components/ui/Toast.astro';
+import VerifyEmailBanner from '../components/dashboard/VerifyEmailBanner.astro';
+import { getAuthState } from '../lib/auth';
+import type { ToastNotice } from '../lib/toast';
+import { SITE_NAME } from '../lib/site';
+
+interface Props {
+  title: string;
+  /** Confirmation after a redirect, shown as a toast. */
+  toast?: ToastNotice | null;
+}
+
+const { title, toast } = Astro.props;
+// The middleware already required a session for /quan-ly/*; this is cached.
+const authState = await getAuthState(Astro);
+const landlord = authState?.landlord ?? null;
+
+const navItems = [
+  { href: '/quan-ly', label: 'Tổng quan' },
+  { href: '/quan-ly/phong', label: 'Phòng của tôi' },
+  { href: '/quan-ly/lien-he', label: 'Yêu cầu liên hệ' },
+  { href: '/quan-ly/tai-khoan', label: 'Tài khoản' },
+];
+
+const currentPath = Astro.url.pathname.replace(/\/$/, '') || '/';
+const isActive = (href: string) =>
+  href === '/quan-ly' ? currentPath === href : currentPath.startsWith(href);
+---
+
+<BaseLayout title={`${title} | Quản lý`} noindex>
+  <div class="flex min-h-screen flex-col bg-bg">
+    <header class="glass sticky top-0 z-40 border-b border-line [view-transition-name:site-header]">
+      <div class="flex h-16 items-center justify-between gap-3 px-4 md:px-8">
+        <a href="/" class="flex min-h-11 shrink-0 items-center gap-2.5" aria-label={`${SITE_NAME}, trang chủ`}>
+          <img src="/logo/logo-mark.webp" alt="" width="37" height="36" class="h-9 w-auto shrink-0" />
+          <span class="hidden text-title leading-none font-medium whitespace-nowrap sm:inline">{SITE_NAME}</span>
+        </a>
+        <div class="flex min-w-0 items-center gap-2 sm:gap-4">
+          {landlord && <span class="truncate text-small text-muted">{landlord.name}</span>}
+          <form method="post" action="/dang-xuat" class="shrink-0">
+            <button
+              type="submit"
+              data-press
+              class="transition-feedback inline-flex min-h-11 items-center gap-2 rounded-lg border border-line bg-paper px-3 text-small font-medium text-ink hover:border-ink active:bg-surface"
+            >
+              <Icon name="logOut" size={18} />
+              Đăng xuất
+            </button>
+          </form>
+        </div>
+      </div>
+    </header>
+    <div class="flex flex-1 flex-col md:flex-row">
+      <aside class="border-b border-line bg-paper md:w-60 md:shrink-0 md:border-r md:border-b-0">
+        <nav class="flex gap-1 overflow-x-auto p-3 md:flex-col" aria-label="Điều hướng quản lý">
+          {
+            navItems.map((item) => (
+              <a
+                href={item.href}
+                class:list={[
+                  'transition-feedback shrink-0 rounded-md px-3 py-2 text-small font-medium whitespace-nowrap',
+                  isActive(item.href) ? 'bg-ink text-inv-ink' : 'text-muted hover:bg-surface hover:text-ink',
+                ]}
+                aria-current={isActive(item.href) ? 'page' : undefined}
+              >
+                {item.label}
+              </a>
+            ))
+          }
+        </nav>
+      </aside>
+      <main class="flex-1 p-4 md:p-8">
+        {authState && !authState.emailVerified && <VerifyEmailBanner email={authState.landlord.email} />}
+        <slot />
+      </main>
+    </div>
+    {toast && <Toast notice={toast} />}
+  </div>
+</BaseLayout>

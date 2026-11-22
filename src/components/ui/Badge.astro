@@ -1,0 +1,25 @@
+---
+/**
+ * Small status / label badge. Children override the default label.
+ * `hidden` (room status "Đang ẩn") is dashboard-only: never on public pages.
+ */
+interface Props {
+  variant: 'new' | 'available' | 'rented' | 'hidden';
+  class?: string;
+}
+
+const { variant, class: className } = Astro.props;
+
+const styles = {
+  new: { label: 'Mới đăng', class: 'bg-highlight text-ink' },
+  available: { label: 'Còn trống', class: 'bg-accent-soft text-accent-strong' },
+  rented: { label: 'Đã thuê', class: 'bg-surface text-muted' },
+  hidden: { label: 'Đang ẩn', class: 'border border-line bg-paper text-muted' },
+};
+
+const style = styles[variant];
+---
+
+<span class:list={['inline-flex items-center rounded-md px-2 py-0.5 text-caption font-medium', style.class, className]}>
+  <slot>{style.label}</slot>
+</span>

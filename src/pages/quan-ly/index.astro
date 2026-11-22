@@ -1,0 +1,132 @@
+---
+/** Dashboard overview: rooms by status, new contact requests, contact profile. */
+import { actions } from 'astro:actions';
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import Button from '../../components/ui/Button.astro';
+import Icon from '../../components/ui/Icon.astro';
+import type { ToastNotice } from '../../lib/toast';
+import { getAuthState } from '../../lib/auth';
+import { formatPhone } from '../../lib/format';
+import { getDashboardStats } from '../../lib/landlord-rooms';
+import { ROOM_STATUS_LABELS } from '../../lib/room-status';
+import { ROOM_STATUSES } from '../../types';
+
+export const prerender = false;
+
+const authState = await getAuthState(Astro);
+// The middleware guarantees a landlord here; this only narrows the type.
+if (!authState) return Astro.redirect('/dang-nhap', 303);
+const { landlord, emailVerified } = authState;
+
+// "Gửi lại email" from the verification banner (any dashboard page) posts here.
+// `sent: false` means the email was verified meanwhile (e.g. in another tab).
+const resendResult = Astro.getActionResult(actions.resendVerificationEmail);
+if (resendResult?.data) {
+  return Astro.redirect(resendResult.data.sent ? '/quan-ly?da-gui-xac-thuc=1' : '/quan-ly?xac-thuc=ok', 303);
+}
+
+// The verification link lands on `?xac-thuc=ok`; Better Auth adds `&error=…`
+// when it fails. The real state decides: an old link opened after verifying
+// is not an error, and a hand-typed `?xac-thuc=ok` never claims success.
+const params = Astro.url.searchParams;
+const verifyError = params.get('error');
+const verifyParams = ['xac-thuc', 'error'];
+let toast: ToastNotice | null = null;
+if (params.get('xac-thuc') === 'ok') {
+  if (emailVerified) {
+    toast = { tone: 'info', text: 'Đã xác thực email. Bây giờ bạn có thể cho phòng hiện công khai.', clearParams: verifyParams };
+  } else if (verifyError) {
+    toast = {
+      tone: 'error',
+      text:
+        verifyError === 'TOKEN_EXPIRED'
+          ? 'Liên kết xác thực đã hết hạn. Hãy bấm “Gửi lại email”.'
+          : 'Liên kết xác thực không hợp lệ hoặc thuộc tài khoản khác. Hãy bấm “Gửi lại email”.',
+      clearParams: verifyParams,
+    };
+  }
+} else if (params.has('da-gui-xac-thuc') && !emailVerified) {
+  toast = {
+    tone: 'info',
+    text: 'Đã gửi lại email xác thực. Hãy kiểm tra hộp thư (cả mục Spam).',
+    clearParams: ['da-gui-xac-thuc'],
+  };
+} else if (resendResult?.error) {
+  toast = { tone: 'error', text: resendResult.error.message };
+}
+
+const stats = await getDashboardStats(landlord.id);
+
+const cards: { label: string; value: number; href?: string }[] = [
+  ...ROOM_STATUSES.map((status) => ({
+    label: `Phòng ${ROOM_STATUS_LABELS[status].toLowerCase()}`,
+    value: stats.rooms[status],
+    href: '/quan-ly/phong',
+  })),
+  { label: 'Yêu cầu liên hệ mới', value: stats.newContactRequests, href: '/quan-ly/lien-he?trang-thai=moi' },
+];
+
+const profile = [
+  { label: 'Email', value: landlord.email },
+  { label: 'Số điện thoại', value: formatPhone(landlord.phone) },
+  { label: 'Zalo', value: landlord.zalo ? formatPhone(landlord.zalo) : 'Chưa có' },
+];
+---
+
+<DashboardLayout title="Tổng quan" toast={toast}>
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <div>
+      <h1 class="text-display font-medium">Chào {landlord.name}</h1>
+      <p class="mt-1 text-muted">
+        {stats.totalRooms > 0 ? `Bạn có ${stats.totalRooms} phòng.` : 'Bạn chưa đăng phòng nào.'}
+      </p>
+    </div>
+    <Button href="/quan-ly/phong/moi">
+      <Icon name="plus" size={18} />
+      Đăng phòng mới
+    </Button>
+  </div>
+
+  <ul class="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+    {
+      cards.map(({ href, ...card }) => {
+        const Card = href ? 'a' : 'div';
+        return (
+        <li>
+          <Card
+            href={href}
+            class:list={[
+              'block h-full rounded-card border border-line bg-paper p-4 sm:p-5',
+              href && 'transition-feedback hover:border-ink',
+            ]}
+          >
+            <span class="block text-display font-medium text-ink tabular-nums">{card.value}</span>
+            <span class="mt-1 block text-small text-muted">{card.label}</span>
+          </Card>
+        </li>
+        );
+      })
+    }
+  </ul>
+
+  <section class="mt-8 max-w-xl rounded-card border border-line bg-paper p-5 sm:p-6" aria-labelledby="profile-heading">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <h2 id="profile-heading" class="text-title font-medium">Thông tin liên hệ</h2>
+      <Button href="/quan-ly/tai-khoan" variant="ghost" size="sm">
+        <Icon name="pencil" size={16} />
+        Sửa
+      </Button>
+    </div>
+    <p class="mt-1 text-small text-muted">Người thuê không thấy các thông tin này; họ gửi yêu cầu qua biểu mẫu.</p>
+    <dl class="mt-5 grid gap-4">
+      {
+        profile.map((item) => (
+          <div class="grid gap-1 sm:grid-cols-[10rem_1fr] sm:gap-6">
+            <dt class="text-small text-muted">{item.label}</dt>
+            <dd class="break-all">{item.value}</dd>
+          </div>
+        ))
+      }
+    </dl>
+  </section>
+</DashboardLayout>

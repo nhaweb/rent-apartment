@@ -1,0 +1,389 @@
+---
+/**
+ * Map discovery view: a room list beside a MapLibre map (OpenFreeMap tiles) with price markers.
+ * Side by side from lg; on smaller screens the map fills the area and a
+ * floating button switches to the list.
+ *
+ * Markup for cards lives in the <template>s below; `room-map.ts` fills them
+ * from `MapRoomView` JSON (first batch inlined here, the rest from /api/ban-do).
+ */
+import 'maplibre-gl/dist/maplibre-gl.css';
+import Icon from '../ui/Icon.astro';
+import type { MapPayload } from '../../lib/map';
+import type { MapBounds } from '../../lib/validation/map-bounds';
+import type { GeoPoint } from '../../types';
+
+interface Props {
+  payload: MapPayload;
+  /** First view: the URL's bbox, or the padded extent of matching rooms. */
+  view: MapBounds | undefined;
+  /** True when `view` came from the URL and should be kept as is. */
+  viewFromUrl: boolean;
+  /** Extent of every matching room ("Xem tất cả" button). */
+  extent: MapBounds | undefined;
+  /** Center when there is nothing to fit. */
+  center: GeoPoint;
+  /** Listing filters as a query string without `?`, sent with every area request. */
+  query: string;
+}
+
+const { payload, view, viewFromUrl, extent, center, query } = Astro.props;
+const data = { payload, view: view ?? null, viewFromUrl, extent: extent ?? null, center, query };
+---
+
+<room-map data-view="map" class="group/map relative flex min-h-0 flex-1">
+  <script type="application/json" data-initial set:html={JSON.stringify(data).replaceAll('<', '\\u003c')} />
+
+  <section
+    data-list-panel
+    aria-labelledby="map-list-heading"
+    class="z-20 min-h-0 overflow-y-auto overscroll-contain bg-bg max-lg:absolute max-lg:inset-0 lg:w-[58%] xl:w-[62%]"
+  >
+    <div class="px-4 pt-5 pb-28 sm:px-6 lg:px-8 lg:pb-10">
+      <h1 id="map-list-heading" class="sr-only">Phòng trên bản đồ</h1>
+      <div class="flex min-h-11 items-center justify-between gap-4">
+        <p data-status class="text-small font-medium" aria-live="polite">
+          {payload.total} phòng trong khu vực bản đồ
+        </p>
+        <!-- Actions above the list, e.g. the "Bộ lọc" button. -->
+        <slot name="list-actions" />
+      </div>
+      <ul data-list class="mt-4 grid gap-x-5 gap-y-8 sm:grid-cols-2 xl:grid-cols-3"></ul>
+      <!-- Shown while the rooms for a new map area load. -->
+      <ul data-skeleton hidden aria-hidden="true" class="mt-4 grid gap-x-5 gap-y-8 sm:grid-cols-2 xl:grid-cols-3"></ul>
+      <div data-empty hidden class="mt-4 rounded-card border border-line bg-surface px-6 py-10 text-center">
+        <p class="text-title">Không có phòng trong khu vực này</p>
+        <p class="mx-auto mt-2 max-w-sm text-muted">Thu nhỏ hoặc kéo bản đồ sang khu khác, hoặc xem lại toàn bộ phòng.</p>
+        <button
+          type="button"
+          data-fit-all
+          class="transition-feedback mt-5 inline-flex min-h-11 items-center rounded-lg border border-line bg-paper px-5 font-medium hover:border-ink"
+        >
+          Xem tất cả phòng trên bản đồ
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <div data-map-panel class="relative min-h-0 flex-1 bg-surface lg:border-l lg:border-line">
+    <!-- MapLibre forces position: relative on its container, so a wrapper does the positioning. -->
+    <div class="absolute inset-0">
+      <div data-map class="size-full" role="region" aria-label="Bản đồ phòng cho thuê"></div>
+    </div>
+
+    <div data-loading hidden class="map-fade-in pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center">
+      <p class="glass-strong inline-flex items-center gap-2 rounded-lg py-1.5 pr-4 pl-3 text-small font-medium shadow-float">
+        <Icon name="loaderCircle" size={16} class="map-spin text-accent" />
+        Đang tìm phòng…
+      </p>
+    </div>
+
+    <div
+      data-notice
+      hidden
+      class="absolute inset-0 z-10 grid place-items-center bg-surface p-6 text-center"
+    >
+      <div class="max-w-xs">
+        <Icon name="map" size={32} class="mx-auto text-muted" />
+        <p class="mt-3 font-medium">Bản đồ đang tạm thời không hiển thị được</p>
+        <p class="mt-1 text-small text-muted">Bạn vẫn xem được danh sách phòng.</p>
+        <a href="/phong" class="link mt-3 inline-block text-small font-medium text-accent">Xem tất cả phòng</a>
+      </div>
+    </div>
+
+    <!-- Phones and tablets: the selected room's preview sits above the map's bottom edge. -->
+    <div data-preview-slot hidden class="absolute inset-x-4 bottom-[max(3.5rem,env(safe-area-inset-bottom))] z-20"></div>
+  </div>
+
+  <div
+    data-toggle-bar
+    class="pointer-events-none absolute inset-x-0 bottom-[max(3.5rem,env(safe-area-inset-bottom))] z-30 flex justify-center gap-2 lg:hidden"
+  >
+    <!-- Map view on phones: actions beside the list toggle (hidden in list view, which has its own). -->
+    <div class="pointer-events-auto group-data-[view=list]/map:hidden">
+      <slot name="map-actions" />
+    </div>
+    <button
+      type="button"
+      data-toggle
+      data-press
+      class="transition-feedback pointer-events-auto inline-flex min-h-11 items-center gap-2 rounded-lg bg-ink px-5 text-small font-medium text-inv-ink shadow-float hover:bg-accent-strong"
+    >
+      <span data-toggle-to="list" class="inline-flex items-center gap-2">
+        Danh sách <Icon name="list" size={18} />
+      </span>
+      <span data-toggle-to="map" hidden class="inline-flex items-center gap-2">
+        Bản đồ <Icon name="map" size={18} />
+      </span>
+    </button>
+  </div>
+
+  <template data-card-template>
+    <li>
+      <a
+        data-card
+        data-room=""
+        class="group block rounded-card"
+      >
+        <div class="relative aspect-[4/3] overflow-hidden rounded-card bg-surface">
+          <img data-photo alt="" loading="lazy" decoding="async" class="size-full object-cover" />
+          <span data-new hidden class="absolute top-3 left-3 rounded-md bg-highlight px-2.5 py-1 text-caption font-medium text-ink">
+            Mới đăng
+          </span>
+        </div>
+        <div class="pt-3">
+          <h2
+            data-title
+            class="line-clamp-1 font-medium group-hover:underline group-hover:decoration-1 group-hover:underline-offset-4"
+          >
+          </h2>
+          <p data-place class="mt-0.5 line-clamp-1 text-small text-muted"></p>
+          <p data-details class="line-clamp-1 text-small text-muted"></p>
+          <p class="mt-1.5">
+            <span data-price class="text-title font-medium"></span>
+            <span class="text-small text-muted">/tháng</span>
+          </p>
+        </div>
+      </a>
+    </li>
+  </template>
+
+  <template data-skeleton-template>
+    <li>
+      <div class="map-skeleton aspect-[4/3] rounded-card bg-line"></div>
+      <div class="map-skeleton mt-3.5 h-4 w-4/5 rounded-full bg-line"></div>
+      <div class="map-skeleton mt-2 h-3 w-1/2 rounded-full bg-line"></div>
+      <div class="map-skeleton mt-2 h-3 w-2/3 rounded-full bg-line"></div>
+      <div class="map-skeleton mt-3 h-5 w-1/3 rounded-full bg-line"></div>
+    </li>
+  </template>
+
+  <template data-preview-template>
+    <div
+      data-preview
+      class="relative flex overflow-hidden rounded-card border border-line bg-paper shadow-float md:w-80 md:flex-col"
+    >
+      <a data-card class="group flex min-w-0 flex-1 md:flex-col">
+        <div class="relative w-30 shrink-0 bg-surface md:aspect-[3/2] md:w-full">
+          <img data-photo alt="" decoding="async" class="absolute inset-0 size-full object-cover" />
+          <span
+            data-new
+            hidden
+            class="absolute top-2 left-2 rounded-md bg-highlight px-2 py-0.5 text-caption font-medium text-ink max-md:hidden"
+          >
+            Mới đăng
+          </span>
+        </div>
+        <div class="min-w-0 flex-1 py-3 pr-12 pl-3 md:p-4">
+          <p
+            data-title
+            class="line-clamp-2 text-small font-medium group-hover:underline group-hover:decoration-1 group-hover:underline-offset-4 md:text-body"
+          >
+          </p>
+          <p data-place class="mt-0.5 line-clamp-1 text-small text-muted"></p>
+          <p data-details class="line-clamp-1 text-small text-muted max-md:hidden"></p>
+          <p class="mt-1">
+            <span data-price class="font-medium md:text-title"></span>
+            <span class="text-small text-muted">/tháng</span>
+          </p>
+        </div>
+      </a>
+      <button
+        type="button"
+        data-close
+        aria-label="Đóng"
+        class="transition-feedback glass-chip absolute top-1.5 right-1.5 grid size-11 place-items-center rounded-full text-ink hover:border-ink md:top-2 md:right-2 md:size-9"
+      >
+        <Icon name="x" size={16} />
+      </button>
+    </div>
+  </template>
+</room-map>
+
+<style is:global>
+  /*
+   * maplibre-gl.css sets Helvetica on the whole map; keep the app font for
+   * pins, clusters, the preview card and controls. (Basemap labels are drawn
+   * from the style's glyphs and are not affected.)
+   */
+  .maplibregl-map {
+    font-family: var(--font-sans);
+  }
+
+  /* Room preview popup: the card brings its own surface, so MapLibre's box and tip go. */
+  .room-popup {
+    /* Above the pins, which carry z-index 1-3 (price-markers.ts). */
+    z-index: 10;
+  }
+
+  .room-popup .maplibregl-popup-content {
+    padding: 0;
+    background: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .room-popup .maplibregl-popup-tip {
+    display: none;
+  }
+
+  /* Attribution and controls in the site font and tokens. */
+  room-map .maplibregl-ctrl-attrib {
+    font-family: var(--font-sans);
+    font-size: var(--text-caption);
+    color: var(--color-muted);
+  }
+
+  room-map .maplibregl-ctrl-attrib a {
+    color: var(--color-ink);
+  }
+
+  /*
+   * Map page motion (an agreed exception to the site-wide Motion rules, see
+   * CLAUDE.md). Everything sits behind prefers-reduced-motion, animates only
+   * opacity / scale / translate, and never touches the element MapLibre
+   * positions (pins animate their inner `.map-face`).
+   */
+  @media (prefers-reduced-motion: no-preference) {
+    /* Pins and clusters: grow on hover, selection or a hovered list card. */
+    room-map .map-face {
+      transition:
+        scale 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+        color 150ms ease-out,
+        background-color 150ms ease-out,
+        border-color 150ms ease-out;
+    }
+
+    /* `backwards`, not `both`: after the entrance, the scale classes take over again. */
+    room-map .map-enter {
+      animation: map-pop-in 240ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+    }
+
+    room-map .map-leave {
+      animation: map-pop-out 140ms ease-in forwards;
+    }
+
+    /* List cards after an area loads, a few at a time. */
+    room-map .map-card-enter {
+      animation: map-fade-up 280ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+      animation-delay: var(--enter-delay, 0ms);
+    }
+
+    /* Popup rises from its pin; it drops instead when it opens below the pin. */
+    .room-popup .map-preview-enter {
+      --rise: 8px;
+      transform-origin: 50% 100%;
+      animation: map-popup-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+    }
+
+    .room-popup.maplibregl-popup-anchor-top .map-preview-enter,
+    .room-popup.maplibregl-popup-anchor-top-left .map-preview-enter,
+    .room-popup.maplibregl-popup-anchor-top-right .map-preview-enter {
+      --rise: -8px;
+      transform-origin: 50% 0;
+    }
+
+    /* Phone preview slides up from the bottom edge. */
+    room-map [data-preview-slot] .map-preview-enter {
+      animation: map-sheet-in 260ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+    }
+
+    .map-preview-leave {
+      animation: map-fade-out 140ms ease-in forwards;
+    }
+
+    room-map .map-fade-in {
+      animation: map-fade-in 160ms ease-out backwards;
+    }
+
+    room-map .map-spin {
+      animation: map-spin 800ms linear infinite;
+    }
+
+    room-map .map-skeleton {
+      animation: map-pulse 1.4s ease-in-out infinite;
+    }
+
+    /* Phones: the list fades in over the map. */
+    @media (width < 64rem) {
+      room-map[data-view='list'] [data-list-panel] {
+        animation: map-fade-in 180ms ease-out;
+      }
+    }
+  }
+
+  @keyframes map-pop-in {
+    from {
+      opacity: 0;
+      scale: 0.6;
+    }
+  }
+
+  @keyframes map-pop-out {
+    to {
+      opacity: 0;
+      scale: 0.6;
+    }
+  }
+
+  @keyframes map-fade-up {
+    from {
+      opacity: 0;
+      translate: 0 8px;
+    }
+  }
+
+  @keyframes map-popup-in {
+    from {
+      opacity: 0;
+      translate: 0 var(--rise);
+      scale: 0.96;
+    }
+  }
+
+  @keyframes map-sheet-in {
+    from {
+      opacity: 0;
+      translate: 0 24px;
+    }
+  }
+
+  @keyframes map-fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @keyframes map-fade-out {
+    to {
+      opacity: 0;
+    }
+  }
+
+  @keyframes map-spin {
+    to {
+      rotate: 360deg;
+    }
+  }
+
+  @keyframes map-pulse {
+    50% {
+      opacity: 0.5;
+    }
+  }
+</style>
+
+<style>
+  /* Below lg the list covers the map; `data-view` picks which one shows. */
+  @media (width < 64rem) {
+    room-map[data-view='map'] [data-list-panel] {
+      display: none;
+    }
+  }
+</style>
+
+<script>
+  import { RoomMapElement } from './room-map';
+
+  customElements.define('room-map', RoomMapElement);
+</script>

@@ -1,0 +1,171 @@
+---
+/**
+ * /quan-ly/phong: the signed-in landlord's rooms, every status. Status change
+ * and delete are zero-JS forms (Astro Actions); delete asks for confirmation
+ * in a native popover. After a successful action the page redirects (PRG).
+ */
+import { actions, isActionError } from 'astro:actions';
+import DashboardLayout from '../../../layouts/DashboardLayout.astro';
+import Badge from '../../../components/ui/Badge.astro';
+import Button from '../../../components/ui/Button.astro';
+import FormAlert from '../../../components/ui/FormAlert.astro';
+import Icon from '../../../components/ui/Icon.astro';
+import { getCurrentLandlord } from '../../../lib/auth';
+import { formatPriceShort, formatUpdatedAt } from '../../../lib/format';
+import { listOwnRooms } from '../../../lib/landlord-rooms';
+import { formatPlace } from '../../../lib/locations';
+import { ROOM_STATUS_LABELS } from '../../../lib/room-status';
+import { toastFromParams } from '../../../lib/toast';
+import { ROOM_STATUSES } from '../../../types';
+
+export const prerender = false;
+
+const landlord = await getCurrentLandlord(Astro);
+// The middleware guarantees a landlord here; this only narrows the type.
+if (!landlord) return Astro.redirect('/dang-nhap', 303);
+
+const statusResult = Astro.getActionResult(actions.setRoomStatus);
+const deleteResult = Astro.getActionResult(actions.deleteRoom);
+if (statusResult && !statusResult.error) return Astro.redirect('/quan-ly/phong?da-cap-nhat=1', 303);
+if (deleteResult && !deleteResult.error) return Astro.redirect('/quan-ly/phong?da-xoa=1', 303);
+
+const actionError = statusResult?.error ?? deleteResult?.error;
+// Someone else's (or a deleted) room: same answer as a missing one.
+if (actionError && isActionError(actionError) && actionError.code === 'NOT_FOUND') Astro.response.status = 404;
+
+const toast = actionError
+  ? null
+  : toastFromParams(Astro.url.searchParams, {
+      'da-luu': 'Đã lưu phòng.',
+      'da-cap-nhat': 'Đã đổi trạng thái phòng.',
+      'da-xoa': 'Đã xóa phòng.',
+    });
+
+const rooms = await listOwnRooms(landlord.id);
+---
+
+<DashboardLayout title="Phòng của tôi" toast={toast}>
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <div>
+      <h1 class="text-display font-medium">Phòng của tôi</h1>
+      <p class="mt-1 text-muted">{rooms.length} phòng</p>
+    </div>
+    <Button href="/quan-ly/phong/moi">
+      <Icon name="plus" size={18} />
+      Đăng phòng mới
+    </Button>
+  </div>
+
+  {actionError && <FormAlert class="mt-6">{actionError.message}</FormAlert>}
+
+  {
+    rooms.length === 0 ? (
+      <div class="mt-8 rounded-card border border-line bg-paper px-5 py-12 text-center">
+        <Icon name="house" size={28} class="mx-auto text-muted" />
+        <p class="mt-3 font-medium">Bạn chưa đăng phòng nào</p>
+        <p class="mt-1 text-small text-muted">Bấm “Đăng phòng mới” để thêm phòng đầu tiên.</p>
+      </div>
+    ) : (
+      <ul class="mt-6 divide-y divide-line rounded-card border border-line bg-paper">
+        {rooms.map((room) => {
+          const statusId = `status-${room.id}`;
+          const deleteId = `delete-${room.id}`;
+          return (
+            <li class="grid gap-4 p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:items-center lg:gap-6">
+              <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <a href={`/quan-ly/phong/${room.id}`} class="link min-w-0 font-medium break-words text-ink">
+                    {room.title}
+                  </a>
+                  <Badge variant={room.status} />
+                </div>
+                <p class="mt-1 text-small text-muted">
+                  <span class="font-medium text-ink">{formatPriceShort(room.price)}</span>/tháng · {formatPlace(room)}
+                </p>
+                <p class="mt-0.5 text-caption text-muted">{formatUpdatedAt(room.updatedAt)}</p>
+              </div>
+
+              <form method="post" action={actions.setRoomStatus} class="flex items-center gap-2">
+                <input type="hidden" name="id" value={room.id} />
+                <label for={statusId} class="sr-only">
+                  Trạng thái của {room.title}
+                </label>
+                <ui-select class="relative block min-w-0 flex-1 lg:w-36 lg:flex-none">
+                  <select
+                    id={statusId}
+                    name="status"
+                    class="transition-feedback block min-h-11 w-full appearance-none rounded-lg border border-line bg-paper py-2 pr-9 pl-3 text-small text-ink hover:border-muted"
+                  >
+                    {ROOM_STATUSES.map((status) => (
+                      <option value={status} selected={status === room.status}>
+                        {ROOM_STATUS_LABELS[status]}
+                      </option>
+                    ))}
+                  </select>
+                  <svg
+                    data-chevron
+                    class="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.75"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </ui-select>
+                <Button type="submit" variant="outline" size="sm">
+                  Lưu
+                </Button>
+              </form>
+
+              <div class="flex items-center gap-1 lg:justify-end">
+                <Button href={`/quan-ly/phong/${room.id}`} variant="ghost" size="sm">
+                  <Icon name="pencil" size={16} />
+                  Sửa
+                </Button>
+                <button
+                  type="button"
+                  popovertarget={deleteId}
+                  data-press
+                  class="transition-feedback inline-flex min-h-11 items-center gap-2 rounded-lg px-4 text-small font-medium text-danger hover:bg-surface active:bg-line"
+                >
+                  <Icon name="trash" size={16} />
+                  Xóa
+                </button>
+              </div>
+
+              <div
+                id={deleteId}
+                popover
+                data-motion="sheet"
+                role="dialog"
+                aria-labelledby={`${deleteId}-title`}
+                class="glass-strong fixed inset-0 m-auto h-fit w-[calc(100%-2rem)] max-w-sm rounded-card border border-line p-5 shadow-float"
+              >
+                <h2 id={`${deleteId}-title`} class="text-title font-medium">
+                  Xóa phòng này?
+                </h2>
+                <p class="mt-2 text-small break-words text-muted">
+                  “{room.title}” và các yêu cầu liên hệ của phòng sẽ bị xóa vĩnh viễn. Nếu chỉ muốn tạm ẩn, hãy đổi trạng
+                  thái sang “Đang ẩn”.
+                </p>
+                <form method="post" action={actions.deleteRoom} class="mt-5 flex flex-wrap justify-end gap-2">
+                  <input type="hidden" name="id" value={room.id} />
+                  <Button variant="ghost" size="sm" popovertarget={deleteId} popovertargetaction="hide">
+                    Hủy
+                  </Button>
+                  <Button type="submit" variant="danger" size="sm">
+                    Xóa vĩnh viễn
+                  </Button>
+                </form>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    )
+  }
+</DashboardLayout>

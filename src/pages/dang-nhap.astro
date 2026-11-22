@@ -1,0 +1,57 @@
+---
+import { actions } from 'astro:actions';
+import PublicLayout from '../layouts/PublicLayout.astro';
+import AuthCard from '../components/auth/AuthCard.astro';
+import Button from '../components/ui/Button.astro';
+import FormAlert from '../components/ui/FormAlert.astro';
+import Input from '../components/ui/Input.astro';
+import { submittedValues } from '../lib/auth';
+import { formErrors } from '../lib/form-errors';
+import { SITE_NAME } from '../lib/site';
+
+export const prerender = false;
+
+const result = Astro.getActionResult(actions.signIn);
+if (result && !result.error) return Astro.redirect(result.data.redirectTo, 303);
+
+const values = await submittedValues(Astro.request);
+const errors = formErrors(result?.error);
+const next = values.next ?? Astro.url.searchParams.get('next') ?? '';
+const passwordChanged = Astro.url.searchParams.has('da-doi-mat-khau');
+const accountDeleted = Astro.url.searchParams.has('da-xoa-tai-khoan');
+---
+
+<PublicLayout title={`Đăng nhập | ${SITE_NAME}`} headerSearch={false} noindex>
+  <AuthCard title="Đăng nhập" description="Dành cho chủ phòng quản lý tin đăng.">
+    {passwordChanged && !result && <FormAlert tone="info" class="mb-5">Đã đổi mật khẩu. Đăng nhập bằng mật khẩu mới.</FormAlert>}
+    {accountDeleted && !result && <FormAlert tone="info" class="mb-5">Đã xóa tài khoản và mọi tin đăng của bạn.</FormAlert>}
+    {errors.form && <FormAlert class="mb-5">{errors.form}</FormAlert>}
+    <form method="post" action={actions.signIn} class="grid gap-4">
+      {next && <input type="hidden" name="next" value={next} />}
+      <Input
+        id="signin-email"
+        label="Email"
+        name="email"
+        type="email"
+        required
+        autocomplete="email"
+        value={values.email}
+        error={errors.fields.email}
+      />
+      <Input
+        id="signin-password"
+        label="Mật khẩu"
+        name="password"
+        type="password"
+        required
+        autocomplete="current-password"
+        error={errors.fields.password}
+      />
+      <a href="/quen-mat-khau" class="link -mt-1 justify-self-start text-small text-accent">Quên mật khẩu?</a>
+      <Button type="submit" class="mt-2 w-full">Đăng nhập</Button>
+    </form>
+    <Fragment slot="footer">
+      Chưa có tài khoản? <a href={next ? `/dang-ky?next=${encodeURIComponent(next)}` : '/dang-ky'} class="link font-medium text-accent">Đăng ký cho chủ phòng</a>
+    </Fragment>
+  </AuthCard>
+</PublicLayout>

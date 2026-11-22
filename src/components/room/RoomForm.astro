@@ -1,0 +1,337 @@
+---
+/**
+ * Create / edit form for a landlord's room. Posts to an Astro Action with
+ * plain HTML; works without JS. A small script narrows "Khu vực quen gọi" to
+ * the chosen ward and hides the per-kWh price unless it applies.
+ * Validation: `roomFormSchema` / `roomUpdateSchema` (`src/lib/validation/room.ts`).
+ */
+import Button from '../ui/Button.astro';
+import FormAlert from '../ui/FormAlert.astro';
+import Icon from '../ui/Icon.astro';
+import Input from '../ui/Input.astro';
+import Select from '../ui/Select.astro';
+import LocationPicker from './location/LocationPicker.astro';
+import { AMENITIES } from '../../lib/amenities';
+import type { FormErrors } from '../../lib/form-errors';
+import { PROVINCE, WARDS, wardShortLabel } from '../../lib/locations';
+import type { RoomFormValues } from '../../lib/room-form';
+import { ROOM_STATUS_HINTS, ROOM_STATUS_LABELS } from '../../lib/room-status';
+import { UTILITY_INCLUDED, UTILITY_NEGOTIABLE } from '../../lib/format';
+import { ROOM_LIMITS } from '../../lib/validation/room';
+import { ROOM_STATUSES, type GeoPoint } from '../../types';
+
+interface Props {
+  /** `actions.createRoom` or `actions.updateRoom`. */
+  action: string;
+  values: RoomFormValues;
+  errors: FormErrors;
+  /** Set on the edit page; sent as a hidden field. */
+  roomId?: string;
+  /** Edit page: photos the room has now ("Còn trống" needs at least one). */
+  photoCount?: number;
+  submitLabel: string;
+  /** Ward name -> map center for the pin picker (`getWardCenters`). */
+  wardCenters: Record<string, GeoPoint>;
+}
+
+const { action, values, errors, roomId, photoCount = 0, submitLabel, wardCenters } = Astro.props;
+const editing = Boolean(roomId);
+const fieldErrors = errors.fields;
+const hasFieldErrors = Object.values(fieldErrors).some(Boolean);
+
+/** Money fields accept `3.500.000`; the schema strips separators. */
+const moneyAttrs = { type: 'text', inputmode: 'numeric', autocomplete: 'off', pattern: '[0-9 .,]*' } as const;
+
+const section = 'rounded-card border border-line bg-paper p-5 sm:p-6';
+const chip =
+  'transition-feedback inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-line bg-paper px-4 text-small text-ink hover:border-ink has-checked:border-ink has-checked:bg-ink has-checked:text-inv-ink has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent';
+---
+
+<form method="post" action={action} class="grid max-w-3xl gap-6" data-room-form novalidate>
+  {roomId && <input type="hidden" name="id" value={roomId} />}
+
+  {errors.form && <FormAlert>{errors.form}</FormAlert>}
+  {hasFieldErrors && <FormAlert>Vui lòng kiểm tra lại các ô được đánh dấu bên dưới.</FormAlert>}
+
+  <section class={section} aria-labelledby="room-info-heading">
+    <h2 id="room-info-heading" class="text-title font-medium">Thông tin phòng</h2>
+    <div class="mt-5 grid gap-4">
+      <Input
+        id="room-title"
+        label="Tiêu đề"
+        name="title"
+        required
+        maxlength={ROOM_LIMITS.title}
+        placeholder="Ví dụ: Studio ban công gần biển, đường Xuân Diệu"
+        value={values.title}
+        error={fieldErrors.title}
+      />
+      <Input
+        as="textarea"
+        id="room-description"
+        label="Mô tả"
+        optional
+        name="description"
+        rows={6}
+        maxlength={ROOM_LIMITS.description}
+        placeholder="Nội thất, giờ giấc, đi lại, ai phù hợp với phòng này..."
+        value={values.description}
+        error={fieldErrors.description}
+      />
+    </div>
+  </section>
+
+  <section class={section} aria-labelledby="room-price-heading">
+    <h2 id="room-price-heading" class="text-title font-medium">Giá và diện tích</h2>
+    <div class="mt-5 grid gap-4 sm:grid-cols-3">
+      <Input id="room-price" label="Giá thuê (đ/tháng)" name="price" required {...moneyAttrs} placeholder="3.500.000" value={values.price} error={fieldErrors.price} />
+      <Input id="room-deposit" label="Tiền cọc (đ)" name="deposit" required {...moneyAttrs} placeholder="0 nếu không cọc" value={values.deposit} error={fieldErrors.deposit} />
+      <Input
+        id="room-area"
+        label="Diện tích (m²)"
+        name="area"
+        required
+        type="text"
+        inputmode="numeric"
+        pattern="[0-9]*"
+        placeholder="25"
+        value={values.area}
+        error={fieldErrors.area}
+      />
+    </div>
+  </section>
+
+  <section class={section} aria-labelledby="room-costs-heading" aria-describedby="room-costs-hint">
+    <h2 id="room-costs-heading" class="text-title font-medium">Chi phí hàng tháng</h2>
+    <p id="room-costs-hint" class="mt-1 text-small text-muted">
+      Để trống: hiện “{UTILITY_NEGOTIABLE}”. Nhập 0: hiện “{UTILITY_INCLUDED}”.
+    </p>
+    <div class="mt-5 grid gap-4 sm:grid-cols-2">
+      <!-- One row per utility, so hiding the kWh price never shifts the water fields. -->
+      <div class="grid gap-4 sm:col-span-2 sm:grid-cols-subgrid">
+      <Select id="room-electricity-mode" label="Tiền điện" name="electricityMode" data-electricity-mode error={fieldErrors.electricityMode}>
+        <option value="" selected={values.electricityMode === ''}>{UTILITY_NEGOTIABLE}</option>
+        <option value="state" selected={values.electricityMode === 'state'}>Giá nhà nước</option>
+        <option value="per-kwh" selected={values.electricityMode === 'per-kwh'}>Giá riêng theo kWh</option>
+      </Select>
+      <div data-electricity-price>
+        <Input
+          id="room-electricity-price"
+          label="Giá điện (đ/kWh)"
+          name="electricityPrice"
+          {...moneyAttrs}
+          placeholder="3.500"
+          value={values.electricityPrice}
+          error={fieldErrors.electricityPrice}
+        />
+      </div>
+      </div>
+      <div class="grid gap-4 sm:col-span-2 sm:grid-cols-subgrid">
+      <Input id="room-water-price" label="Tiền nước (đ)" name="waterPrice" {...moneyAttrs} placeholder="25.000" value={values.waterPrice} error={fieldErrors.waterPrice} />
+      <Select id="room-water-unit" label="Nước tính theo" name="waterUnit" error={fieldErrors.waterUnit}>
+        <option value="m3" selected={values.waterUnit !== 'person'}>Mỗi m³ (khối)</option>
+        <option value="person" selected={values.waterUnit === 'person'}>Mỗi người mỗi tháng</option>
+      </Select>
+      </div>
+      <Input id="room-wifi" label="Wifi (đ/tháng)" name="wifi" {...moneyAttrs} placeholder="100.000" value={values.wifi} error={fieldErrors.wifi} />
+      <Input
+        id="room-service-fee"
+        label="Phí dịch vụ (đ/tháng)"
+        name="serviceFee"
+        {...moneyAttrs}
+        placeholder="Rác, vệ sinh, giữ xe..."
+        value={values.serviceFee}
+        error={fieldErrors.serviceFee}
+      />
+    </div>
+  </section>
+
+  <section class={section} aria-labelledby="room-address-heading">
+    <h2 id="room-address-heading" class="text-title font-medium">Địa chỉ</h2>
+    <p class="mt-1 text-small text-muted">Chỉ ghi tên đường. Người thuê thấy khu vực, bạn gửi số nhà khi hẹn xem phòng.</p>
+    <div class="mt-5 grid gap-4 sm:grid-cols-2">
+      <Input
+        id="room-address"
+        label="Đường"
+        name="address"
+        required
+        maxlength={ROOM_LIMITS.address}
+        placeholder="Đường Xuân Diệu"
+        value={values.address}
+        error={fieldErrors.address}
+        class="sm:col-span-2"
+      />
+      <Select id="room-ward" label="Phường/xã" name="ward" required data-ward-select error={fieldErrors.ward}>
+        <option value="" disabled selected={values.ward === ''}>Chọn phường/xã</option>
+        {WARDS.map((ward) => <option value={ward.name} selected={ward.name === values.ward}>{wardShortLabel(ward.name)}</option>)}
+      </Select>
+      <Select id="room-neighborhood" label="Khu vực quen gọi" optional name="neighborhood" data-neighborhood-select error={fieldErrors.neighborhood}>
+        <option value="" selected={values.neighborhood === ''}>Không chọn</option>
+        {
+          WARDS.filter((ward) => ward.neighborhoods.length > 0).map((ward) => (
+            <optgroup label={wardShortLabel(ward.name)} data-ward={ward.name}>
+              {ward.neighborhoods.map((neighborhood) => (
+                <option value={neighborhood.name} selected={neighborhood.name === values.neighborhood}>
+                  {neighborhood.name}
+                </option>
+              ))}
+            </optgroup>
+          ))
+        }
+      </Select>
+      <p class="text-small text-muted sm:col-span-2">
+        Tỉnh {PROVINCE}. “Khu vực quen gọi” là tên phường cũ (Ghềnh Ráng, Lê Lợi...) mà người thuê vẫn dùng để tìm phòng.
+      </p>
+    </div>
+
+    <div class="mt-6 border-t border-line pt-5">
+      <h3 class="font-medium">Vị trí trên bản đồ <span class="font-normal text-muted">(không bắt buộc)</span></h3>
+      <p id="location-hint" class="mt-1 mb-4 text-small text-muted">
+        Chạm vào bản đồ để đặt ghim ở đoạn đường gần phòng, không cần đúng ngôi nhà. Có ghim thì phòng hiện trên trang Bản đồ.
+      </p>
+      <LocationPicker lat={values.lat} lng={values.lng} wardCenters={wardCenters} error={fieldErrors.lat ?? fieldErrors.lng} />
+    </div>
+  </section>
+
+  <section class={section} aria-labelledby="room-amenities-heading">
+    <fieldset>
+      <legend id="room-amenities-heading" class="text-title font-medium">Tiện ích</legend>
+      <div class="mt-5 flex flex-wrap gap-2">
+        {
+          AMENITIES.map((amenity) => (
+            <label class={chip}>
+              <input type="checkbox" name="amenities" value={amenity.slug} checked={values.amenities.includes(amenity.slug)} class="sr-only" />
+              <Icon name={amenity.icon} size={16} />
+              {amenity.label}
+            </label>
+          ))
+        }
+      </div>
+      {fieldErrors.amenities && <p class="mt-3 text-small text-danger">{fieldErrors.amenities}</p>}
+    </fieldset>
+  </section>
+
+  <section id="anh" tabindex="-1" class={`${section} scroll-mt-24 focus-visible:outline-offset-4`} aria-labelledby="room-photos-heading">
+    {
+      editing ? (
+        <slot name="photos" />
+      ) : (
+        <>
+          <h2 id="room-photos-heading" class="text-title font-medium">
+            Ảnh phòng
+          </h2>
+          <div class="mt-5 grid place-items-center gap-2 rounded-lg border border-dashed border-line bg-surface px-4 py-10 text-center">
+            <Icon name="image" size={28} class="text-muted" />
+            <p class="font-medium">Lưu phòng trước, rồi thêm ảnh</p>
+            <p class="max-w-sm text-small text-muted">Sau khi bấm “Lưu và thêm ảnh”, bạn sẽ được chuyển ngay tới phần ảnh.</p>
+          </div>
+        </>
+      )
+    }
+  </section>
+
+  {
+    editing ? (
+      <section class={section} aria-labelledby="room-status-heading">
+        <fieldset>
+          <legend id="room-status-heading" class="text-title font-medium">
+            Trạng thái
+          </legend>
+          <div class="mt-4 grid gap-1">
+            {ROOM_STATUSES.map((status) => (
+              <label class="flex min-h-11 cursor-pointer items-start gap-3 py-2 has-disabled:cursor-default">
+                <input
+                  type="radio"
+                  name="status"
+                  value={status}
+                  checked={values.status === status}
+                  disabled={status === 'available' && photoCount === 0}
+                  data-status-option={status}
+                  class="peer mt-1 size-5 shrink-0 accent-accent"
+                />
+                <span class="peer-disabled:text-muted">
+                  <span class="block font-medium">{ROOM_STATUS_LABELS[status]}</span>
+                  <span class="block text-small text-muted">
+                    {ROOM_STATUS_HINTS[status]}
+                    {status === 'available' && (
+                      <span data-needs-photo hidden={photoCount > 0}>
+                        {' '}
+                        Cần ít nhất 1 ảnh.
+                      </span>
+                    )}
+                  </span>
+                </span>
+              </label>
+            ))}
+          </div>
+          {fieldErrors.status && <p class="mt-2 text-small text-danger">{fieldErrors.status}</p>}
+        </fieldset>
+      </section>
+    ) : (
+      <p class="text-small text-muted">Phòng mới ở trạng thái “Đang ẩn” cho tới khi bạn thêm ảnh và chọn “Còn trống”.</p>
+    )
+  }
+
+  <div class="flex flex-wrap items-center gap-3">
+    <Button type="submit">{submitLabel}</Button>
+    <Button href="/quan-ly/phong" variant="ghost">Hủy</Button>
+  </div>
+</form>
+
+<script>
+  /** Narrows "Khu vực quen gọi" to the chosen ward; shows the kWh price only when it applies. */
+  function initRoomForm(form: HTMLFormElement): void {
+    const ward = form.querySelector<HTMLSelectElement>('[data-ward-select]');
+    const neighborhood = form.querySelector<HTMLSelectElement>('[data-neighborhood-select]');
+    if (ward && neighborhood) {
+      const narrow = () => {
+        for (const group of neighborhood.querySelectorAll('optgroup')) {
+          const off = Boolean(ward.value) && group.dataset.ward !== ward.value;
+          group.hidden = off;
+          for (const option of group.querySelectorAll('option')) {
+            option.disabled = off;
+            option.hidden = off;
+          }
+        }
+        if (neighborhood.selectedOptions[0]?.disabled) neighborhood.value = '';
+        neighborhood.dispatchEvent(new Event('change'));
+      };
+      ward.addEventListener('change', narrow);
+      narrow();
+    }
+
+    const mode = form.querySelector<HTMLSelectElement>('[data-electricity-mode]');
+    const price = form.querySelector<HTMLElement>('[data-electricity-price]');
+    const priceInput = price?.querySelector('input');
+    if (mode && price && priceInput) {
+      const toggle = () => {
+        const on = mode.value === 'per-kwh';
+        price.hidden = !on;
+        priceInput.disabled = !on;
+      };
+      mode.addEventListener('change', toggle);
+      toggle();
+    }
+  }
+
+  /** "Còn trống" needs a photo: follow the photo manager's count. */
+  function followPhotos(form: HTMLFormElement): void {
+    const available = form.querySelector<HTMLInputElement>('[data-status-option="available"]');
+    const hint = form.querySelector<HTMLElement>('[data-needs-photo]');
+    if (!available) return;
+    form.addEventListener('photos-change', (event) => {
+      const { count, hidden } = (event as CustomEvent<{ count: number; hidden: boolean }>).detail;
+      available.disabled = count === 0;
+      if (hint) hint.hidden = count > 0;
+      if (hidden || (count === 0 && available.checked)) {
+        const hiddenOption = form.querySelector<HTMLInputElement>('[data-status-option="hidden"]');
+        if (hiddenOption) hiddenOption.checked = true;
+      }
+    });
+  }
+
+  document.querySelectorAll<HTMLFormElement>('[data-room-form]').forEach((form) => {
+    initRoomForm(form);
+    followPhotos(form);
+  });
+</script>

@@ -1,0 +1,44 @@
+---
+/**
+ * One short confirmation after a redirect ("Đã lưu", "Đã xác thực email").
+ * Phones: top center below the header; md+: bottom right. Announced to
+ * screen readers. With JS (`motion/toast.ts`) it fades in, closes after 5s
+ * (paused on hover/focus) or with ×, and removes `clearParams` from the URL so
+ * a reload does not show it again. Without JS it simply stays.
+ *
+ * Form validation errors stay inline (`FormAlert`) next to the form.
+ */
+import type { ToastNotice } from '../../lib/toast';
+import Icon from './Icon.astro';
+
+interface Props {
+  notice: ToastNotice;
+}
+
+const { notice } = Astro.props;
+const isError = notice.tone === 'error';
+---
+
+<div
+  data-toast
+  data-toast-params={notice.clearParams?.join(',')}
+  role={isError ? 'alert' : 'status'}
+  class="fixed inset-x-4 top-20 z-50 mx-auto flex max-w-sm items-start gap-3 rounded-lg border border-line bg-paper py-3 pr-2 pl-4 text-small text-ink shadow-float md:inset-x-auto md:top-auto md:right-8 md:bottom-8 md:mx-0"
+>
+  <Icon
+    name={isError ? 'circleAlert' : 'check'}
+    size={20}
+    class:list={['mt-px', isError ? 'text-danger' : 'text-accent']}
+  />
+  <p class="min-w-0 flex-1 py-px">{notice.text}</p>
+  <button
+    type="button"
+    data-toast-close
+    data-press
+    hidden
+    aria-label="Đóng thông báo"
+    class="transition-feedback -my-1.5 inline-flex size-8 shrink-0 items-center justify-center rounded-full text-muted hover:bg-surface hover:text-ink"
+  >
+    <Icon name="x" size={16} />
+  </button>
+</div>

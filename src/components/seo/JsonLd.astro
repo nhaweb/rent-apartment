@@ -1,0 +1,15 @@
+---
+/**
+ * schema.org data for search engines. `<` is escaped so text from the
+ * database (room titles, descriptions) can never close the script tag.
+ */
+import type { JsonLd as JsonLdData } from '../../lib/seo';
+
+interface Props {
+  data: JsonLdData | JsonLdData[];
+}
+
+const json = JSON.stringify(Astro.props.data).replace(/</g, '\\u003c');
+---
+
+<script type="application/ld+json" set:html={json} />

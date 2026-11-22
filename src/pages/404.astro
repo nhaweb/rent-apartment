@@ -1,0 +1,57 @@
+---
+/**
+ * Not found. `/phong/[id]` also rewrites here for a rented room
+ * (`Astro.locals.rentedRoom`): the page then answers 410 and offers similar
+ * available rooms, so a link shared on Zalo is not a dead end.
+ */
+import PublicLayout from '../layouts/PublicLayout.astro';
+import Button from '../components/ui/Button.astro';
+import RoomRow from '../components/room/RoomRow.astro';
+import { getSimilarRooms } from '../lib/rooms';
+import { formatPlace } from '../lib/locations';
+import { formatPriceShort } from '../lib/format';
+import { slugify } from '../lib/slug';
+import { SITE_NAME } from '../lib/site';
+import { roomFiltersToQuery } from '../lib/validation/room-filters';
+
+const rented = Astro.locals.rentedRoom;
+Astro.response.status = rented ? 410 : 404;
+const similar = rented ? await getSimilarRooms(rented, 5) : [];
+const wardHref = rented ? `/phong${roomFiltersToQuery({ place: slugify(rented.ward) })}` : '/phong';
+---
+
+<PublicLayout title={`${rented ? 'Phòng đã có người thuê' : 'Không tìm thấy trang'} | ${SITE_NAME}`} noindex chat={false}>
+  {
+    rented ? (
+      <>
+        <section class="wrap py-16 text-center sm:py-24">
+          <p class="text-small font-medium text-muted">Đã có người thuê</p>
+          <h1 class="mx-auto mt-3 max-w-2xl text-display">{rented.title}</h1>
+          <p class="mx-auto mt-4 max-w-md text-muted">
+            Phòng này ({formatPriceShort(rented.price)}/tháng, {formatPlace(rented)}) đã được cho thuê. Các phòng còn
+            trống gần đó ở bên dưới.
+          </p>
+          <Button href={wardHref} class="mt-8">
+            Xem phòng còn trống ở khu này
+          </Button>
+        </section>
+        {similar.length > 0 && (
+          <div class="wrap pb-8">
+            <RoomRow id="tuong-tu" title="Phòng tương tự đang trống" href={wardHref} rooms={similar} />
+          </div>
+        )}
+      </>
+    ) : (
+      <section class="wrap py-24 text-center sm:py-32">
+        <p class="text-small font-medium text-muted">Lỗi 404</p>
+        <h1 class="mt-3 text-display">Phòng này không còn hoặc chưa từng có</h1>
+        <p class="mx-auto mt-4 max-w-md text-muted">
+          Có thể chủ phòng đã gỡ tin hoặc đường dẫn bị sai. Các phòng còn trống vẫn ở trong danh sách.
+        </p>
+        <Button href="/phong" class="mt-8">
+          Xem phòng còn trống
+        </Button>
+      </section>
+    )
+  }
+</PublicLayout>

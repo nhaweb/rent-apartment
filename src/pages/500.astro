@@ -1,0 +1,21 @@
+---
+/**
+ * Server error. Uses `BaseLayout` only: no database call (the header's ward
+ * list could be the very thing that failed).
+ */
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Button from '../components/ui/Button.astro';
+import { SITE_NAME } from '../lib/site';
+---
+
+<BaseLayout title={`Có lỗi xảy ra | ${SITE_NAME}`} noindex>
+  <main class="wrap py-24 text-center sm:py-32">
+    <a href="/" class="mx-auto inline-flex min-h-11 items-center gap-2.5" aria-label={`${SITE_NAME}, trang chủ`}>
+      <img src="/logo/logo-mark.webp" alt="" width="41" height="40" class="h-10 w-auto" />
+    </a>
+    <p class="mt-10 text-small font-medium text-muted">Lỗi 500</p>
+    <h1 class="mt-3 text-display">Trang đang gặp lỗi</h1>
+    <p class="mx-auto mt-4 max-w-md text-muted">Bạn thử tải lại sau ít phút. Nếu vẫn lỗi, quay về trang chủ.</p>
+    <Button href="/" class="mt-8">Về trang chủ</Button>
+  </main>
+</BaseLayout>

@@ -1,0 +1,288 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens. This file is the only place hex values live.
+ * Palette: white + navy (#0f3d6e, primary) + orange (#f97316, accent).
+ * Room photos carry the color; the UI stays neutral.
+ */
+@theme {
+  /* Surfaces: white and cool greys so room photos keep their true color */
+  --color-bg: #ffffff;
+  --color-surface: #f3f6fa;
+  /* filter bar, sections, rented badge */
+  --color-paper: #ffffff;
+  /* cards, forms, modals; also text on accent */
+  --color-line: #e2e8f0;
+
+  /* Text: navy-tinted near-black and slate */
+  --color-ink: #13233a;
+  --color-muted: #5b6b7f;
+
+  /* Brand navy: primary CTA and links (white text on it ~11:1) */
+  --color-accent: #0f3d6e;
+  --color-accent-strong: #0a2c52;
+  --color-accent-soft: #e6eef7;
+
+  /*
+   * Brand orange: small badges only; text on it is always ink (~6:1).
+   * White on it is ~2.9:1, so never use it as a button or text color.
+   */
+  --color-highlight: #f97316;
+
+  --color-danger: #b42318;
+
+  /* Inverted block (deep navy): footer and at most one large CTA per page */
+  --color-inv-bg: #0b2747;
+  --color-inv-ink: #eef2f7;
+  --color-inv-muted: #a9b6c6;
+
+  /*
+   * Glass: only for layers that float over content or photos (sticky header,
+   * overlays, labels on photos, the phone action bar).
+   * Cards, forms and page backgrounds stay solid so photos keep true color.
+   */
+  --color-glass: rgb(255 255 255 / 0.72);
+  /* bg at 72% */
+  --color-glass-strong: rgb(255 255 255 / 0.86);
+  /* paper at 86%, for panels with text */
+  --color-glass-edge: rgb(255 255 255 / 0.6);
+  /* hairline highlight on glass */
+  --color-glass-ink: rgb(19 35 58 / 0.55);
+  /* ink at 55%, for labels on photos */
+
+  --font-sans: "Raleway", system-ui, sans-serif;
+  /* Site name next to the header logo only. */
+  --font-brand: "Baloo 2", system-ui, sans-serif;
+
+  /* Type scale: these five sizes only. */
+  --text-*: initial;
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1rem;
+  --text-small: 0.875rem;
+  --text-small--line-height: 1.25rem;
+  --text-body: 1rem;
+  --text-body--line-height: 1.5rem;
+  --text-title: 1.25rem;
+  --text-title--line-height: 1.75rem;
+  --text-display: 1.75rem;
+  --text-display--line-height: 2.25rem;
+
+  --radius-card: 0.75rem;
+
+  /*
+   * The only shadow: one layer, for things that float above the page
+   * (search pill, popover panels). Cards never get a shadow.
+   */
+  --shadow-float: 0 4px 16px rgb(19 35 58 / 0.12);
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    scroll-padding-top: 5rem;
+  }
+
+  body {
+    background: var(--color-bg);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    /*
+     * Raleway defaults to old-style figures; prices and areas need lining
+     * ones. A feature setting (not font-variant-numeric) so `tabular-nums`
+     * still combines with it.
+     */
+    font-feature-settings: "lnum" 1;
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-weight: 500;
+    text-wrap: balance;
+  }
+
+  /*
+   * Tailwind v4 leaves buttons on the default cursor; every clickable
+   * control gets the pointer here, so components need no `cursor-pointer`.
+   * Utilities (`cursor-grab` on drag handles, map pins) still win.
+   */
+  button,
+  [role="button"],
+  [role="option"],
+  [role="tab"],
+  [popovertarget],
+  summary,
+  select,
+  input:is([type="checkbox"], [type="radio"], [type="submit"], [type="button"], [type="reset"], [type="file"], [type="range"]),
+  input::file-selector-button,
+  label:has(input:is([type="checkbox"], [type="radio"], [type="file"])) {
+    cursor: pointer;
+  }
+
+  :is(button, select, input, [role="button"], [role="option"]):is(:disabled, [aria-disabled="true"]),
+  label:has(input:is([type="checkbox"], [type="radio"], [type="file"]):disabled) {
+    cursor: not-allowed;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+}
+
+@utility wrap {
+  width: 100%;
+  max-width: 80rem;
+  margin-inline: auto;
+  padding-inline: 1rem;
+
+  @media (width >= 40rem) {
+    padding-inline: 1.5rem;
+  }
+
+  @media (width >= 64rem) {
+    padding-inline: 2rem;
+  }
+}
+
+/*
+ * Hover/active feedback: color, background and border only. Movement
+ * (press, overlays, select popups) is handled by Motion in
+ * src/components/ui/motion/. Skipped for users who prefer reduced motion.
+ */
+@utility transition-feedback {
+  @media (prefers-reduced-motion: no-preference) {
+    transition-property: color, background-color, border-color, text-decoration-color;
+    transition-duration: 150ms;
+    transition-timing-function: ease-out;
+  }
+}
+
+/*
+ * Glass surfaces. Each falls back to a solid token when backdrop-filter is
+ * unsupported or the user asks for reduced transparency.
+ */
+@utility glass {
+  background: var(--color-glass);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    background: var(--color-bg);
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    background: var(--color-bg);
+  }
+}
+
+@utility glass-strong {
+  background: var(--color-glass-strong);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    background: var(--color-paper);
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    background: var(--color-paper);
+  }
+}
+
+/* Small labels and buttons that sit on a photo. Text is ink. */
+@utility glass-chip {
+  background: var(--color-glass-strong);
+  border: 1px solid var(--color-glass-edge);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    background: var(--color-paper);
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    background: var(--color-paper);
+  }
+}
+
+/* Dark label on a photo (photo counter). Text is paper. */
+@utility glass-dark {
+  background: var(--color-glass-ink);
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    background: var(--color-ink);
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    background: var(--color-ink);
+  }
+}
+
+/* Horizontal scrollers (category bar, room rows) without a visible scrollbar. */
+@utility scrollbar-none {
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@layer components {
+  /* Text link: underline appears on hover, no animation. */
+  .link {
+    text-underline-offset: 4px;
+    text-decoration-thickness: 1px;
+  }
+
+  .link:hover {
+    text-decoration-line: underline;
+  }
+}
+
+@layer base {
+  /*
+   * Popover sheets (search, filters, photo tour). Opened with the native
+   * `popover` attribute, so they work without JS. Full screen on phones;
+   * components narrow them on larger screens.
+   */
+  [popover] {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    color: inherit;
+    background: var(--color-paper);
+  }
+
+  [popover]:not(:popover-open) {
+    display: none;
+  }
+
+  [popover]::backdrop {
+    background: transparent;
+  }
+
+  body:has(:popover-open) {
+    overflow: hidden;
+  }
+}
+
+/*
+ * Page changes crossfade (native cross-document view transitions, no JS).
+ * The header has its own transition name, so it stays still.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition {
+    navigation: auto;
+  }
+
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 180ms;
+    animation-timing-function: ease-out;
+  }
+}

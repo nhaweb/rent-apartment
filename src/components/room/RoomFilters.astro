@@ -1,0 +1,181 @@
+---
+/**
+ * The "Bộ lọc" panel: every listing filter in one GET form. Pages open it with
+ * `FilterButton` (popover target `#filter-sheet`).
+ * The panel is a native popover (full screen on phones, a right-hand drawer
+ * from md), so it opens and submits without JS.
+ */
+import Button from '../ui/Button.astro';
+import GetForm from '../ui/GetForm.astro';
+import Icon from '../ui/Icon.astro';
+import PriceSlider from '../react/PriceSlider';
+import LiveCount from '../react/LiveCount';
+import { SITE_CITY } from '../../lib/site';
+import type { AmenityOption, WardOption } from '../../lib/rooms';
+import { AREA_RANGE_OPTIONS, PRICE_RANGE_OPTIONS } from '../../lib/room-filter-options';
+import { ROOM_FILTER_PARAMS, rangeToParam, type RoomFilters } from '../../lib/validation/room-filters';
+
+interface Props {
+  filters: RoomFilters;
+  wards: WardOption[];
+  amenities: AmenityOption[];
+  /** Rooms matching `filters`; the submit button starts from it. */
+  total: number;
+  /** Page the form submits to: the listing or the map. */
+  basePath?: '/phong' | '/ban-do';
+}
+
+const { filters, wards, amenities, total, basePath = '/phong' } = Astro.props;
+const price = rangeToParam(filters.price);
+const area = rangeToParam(filters.area);
+
+const place = filters.place ?? '';
+
+const groups = [
+  {
+    legend: 'Diện tích',
+    name: ROOM_FILTER_PARAMS.area,
+    value: area,
+    options: [{ value: '', label: 'Mọi diện tích' }, ...AREA_RANGE_OPTIONS],
+  },
+];
+
+const chip =
+  'transition-feedback inline-flex min-h-11 cursor-pointer items-center rounded-lg border border-line bg-paper px-4 text-small text-ink hover:border-ink has-checked:border-ink has-checked:bg-ink has-checked:text-inv-ink has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent';
+---
+
+
+<div
+  id="filter-sheet"
+  popover
+  data-motion="drawer"
+  aria-label="Bộ lọc"
+  class="glass-strong fixed inset-0 h-dvh w-full max-w-none md:inset-y-0 md:right-0 md:left-auto md:w-md md:border-l md:border-line md:shadow-float"
+>
+  <GetForm class="h-full">
+    <form action={basePath} method="get" aria-label="Lọc phòng" class="flex h-full flex-col">
+      {filters.sort !== 'moi-nhat' && <input type="hidden" name={ROOM_FILTER_PARAMS.sort} value={filters.sort} />}
+
+      <div class="flex h-14 shrink-0 items-center justify-between border-b border-line px-2">
+        <button
+          type="button"
+          popovertarget="filter-sheet"
+          popovertargetaction="hide"
+          data-press
+          aria-label="Đóng"
+          class="transition-feedback grid size-11 place-items-center rounded-full hover:bg-surface"
+        >
+          <Icon name="x" />
+        </button>
+        <p class="font-medium">Bộ lọc</p>
+        <span class="size-11" aria-hidden="true"></span>
+      </div>
+
+      <div class="flex-1 divide-y divide-line overflow-y-auto px-5">
+        <fieldset class="py-6">
+          <legend class="float-left mb-4 w-full text-title">Khu vực</legend>
+          <div class="clear-left grid gap-4">
+            <div class="flex flex-wrap gap-2">
+              <label class={chip}>
+                <input type="radio" name={ROOM_FILTER_PARAMS.place} value="" checked={place === ''} class="sr-only" />
+                Cả {SITE_CITY}
+              </label>
+            </div>
+            {
+              wards.map((ward) => (
+                <div class="flex flex-wrap gap-2">
+                  {[ward, ...ward.neighborhoods].map((option) => (
+                    <label class:list={[chip, 'group/chip']}>
+                      <input
+                        type="radio"
+                        name={ROOM_FILTER_PARAMS.place}
+                        value={option.slug}
+                        checked={option.slug === place}
+                        class="sr-only"
+                      />
+                      {option === ward ? ward.label : option.name}
+                      <span class="ml-1.5 text-muted group-has-checked/chip:text-inv-ink">{option.count}</span>
+                    </label>
+                  ))}
+                </div>
+              ))
+            }
+          </div>
+        </fieldset>
+
+        <fieldset class="py-6">
+          <legend class="float-left mb-4 w-full text-title">Giá thuê</legend>
+          <div class="clear-left">
+            <noscript>
+              <div class="flex flex-wrap gap-2">
+                {
+                  [{ value: '', label: 'Mọi mức giá' }, ...PRICE_RANGE_OPTIONS].map((option) => (
+                    <label class={chip}>
+                      <input type="radio" name={ROOM_FILTER_PARAMS.price} value={option.value} checked={option.value === price} class="sr-only" />
+                      {option.label}
+                    </label>
+                  ))
+                }
+              </div>
+            </noscript>
+            <PriceSlider client:visible name={ROOM_FILTER_PARAMS.price} min={filters.price?.min} max={filters.price?.max} />
+          </div>
+        </fieldset>
+
+        {
+          groups.map((group) => (
+            <fieldset class="py-6">
+              <legend class="float-left mb-4 w-full text-title">{group.legend}</legend>
+              <div class="clear-left flex flex-wrap gap-2">
+                {group.options.map((option) => (
+                  <label class={chip}>
+                    <input
+                      type="radio"
+                      name={group.name}
+                      value={option.value}
+                      checked={option.value === group.value}
+                      class="sr-only"
+                    />
+                    {option.label}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          ))
+        }
+
+
+        {
+          amenities.length > 0 && (
+            <fieldset class="py-6">
+              <legend class="float-left mb-4 w-full text-title">Tiện ích</legend>
+              <div class="clear-left grid">
+                {amenities.map((amenity) => (
+                  <label class="flex min-h-12 cursor-pointer items-center gap-3">
+                    <input
+                      type="checkbox"
+                      name={ROOM_FILTER_PARAMS.amenities}
+                      value={amenity.slug}
+                      checked={filters.amenities.includes(amenity.slug)}
+                      class="size-5 shrink-0 accent-accent"
+                    />
+                    <Icon name={amenity.icon} size={20} class="text-muted" />
+                    <span class="min-w-0 flex-1">{amenity.label}</span>
+                    <span class="text-small text-muted">{amenity.count}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          )
+        }
+      </div>
+
+      <div class="flex shrink-0 items-center justify-between gap-4 border-t border-line px-5 py-3">
+        <a href={basePath} class="link inline-flex min-h-11 items-center font-medium">Xóa tất cả</a>
+        <Button type="submit" class="min-w-36 tabular-nums">
+          <LiveCount client:visible total={total} />
+        </Button>
+      </div>
+    </form>
+  </GetForm>
+</div>

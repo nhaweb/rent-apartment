@@ -1,0 +1,173 @@
+---
+/**
+ * Room photos, Airbnb style.
+ * - Phones: full-bleed swipe strip (scroll-snap) with a photo counter.
+ * - md+: a mosaic that adapts to how many photos the room has (1 to 5+).
+ * - "Xem tất cả ảnh" opens every photo in a full-screen sheet (native popover).
+ * Works without JS; the island only keeps the phone counter in sync.
+ */
+import Icon from '../ui/Icon.astro';
+import RoomPhoto from './RoomPhoto.astro';
+import type { RoomPhoto as Photo } from '../../types';
+
+interface Props {
+  photos: Photo[];
+  title: string;
+}
+
+const { photos, title } = Astro.props;
+const count = photos.length;
+const mosaic = photos.slice(0, 5);
+const tourId = 'photo-tour';
+
+const gridClass =
+  count === 1 ? 'grid-cols-1' : count === 2 ? 'grid-cols-2' : 'grid-cols-4 grid-rows-2';
+
+/** Tile spans in the 4×2 mosaic: the first photo takes the left half. */
+function tileClass(index: number): string {
+  if (count < 3) return '';
+  if (index === 0) return 'col-span-2 row-span-2';
+  if (count === 3) return 'col-span-2';
+  if (count === 4 && index === 1) return 'col-span-2';
+  return '';
+}
+
+const alt = (index: number) => `${title}, ảnh ${index + 1}/${count}`;
+---
+
+<room-gallery class="block">
+  <!-- Phones -->
+  <div class="relative -mx-4 sm:-mx-6 md:hidden">
+    <div
+      data-track
+      class="scrollbar-none flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain bg-surface"
+      tabindex="0"
+      role="region"
+      aria-roledescription="thư viện ảnh"
+      aria-label={`Ảnh phòng: ${count} ảnh`}
+    >
+      {
+        photos.map((photo, index) => (
+          <div data-slide class="aspect-[4/3] w-full shrink-0 snap-center">
+            <RoomPhoto
+              photo={photo}
+              alt={alt(index)}
+              prefer="full"
+              sizes="100vw"
+              class="size-full object-cover"
+              loading={index === 0 ? 'eager' : 'lazy'}
+              fetchpriority={index === 0 ? 'high' : undefined}
+            />
+          </div>
+        ))
+      }
+    </div>
+    {
+      count > 1 && (
+        <p
+          data-counter
+          aria-live="polite"
+          class="glass-dark pointer-events-none absolute right-3 bottom-3 rounded-md px-2.5 py-1 text-caption text-paper tabular-nums"
+        >
+          {count} ảnh
+        </p>
+      )
+    }
+  </div>
+
+  <!-- md+ -->
+  <div class="relative hidden md:block">
+    <div class:list={['grid h-[min(60vh,30rem)] gap-2 overflow-hidden rounded-card', gridClass]}>
+      {
+        mosaic.map((photo, index) => (
+          <button
+            type="button"
+            popovertarget={tourId}
+            class:list={['min-h-0 cursor-pointer overflow-hidden bg-surface', tileClass(index)]}
+            aria-label={`Xem ${alt(index)}`}
+          >
+            <RoomPhoto
+              photo={photo}
+              alt=""
+              prefer={index === 0 ? 'full' : 'thumb'}
+              sizes={index === 0 && count > 2 ? '(min-width: 80rem) 608px, 50vw' : count === 1 ? '1216px' : '(min-width: 80rem) 300px, 25vw'}
+              class="size-full object-cover"
+              loading={index === 0 ? 'eager' : 'lazy'}
+            />
+          </button>
+        ))
+      }
+    </div>
+    {
+      count > 1 && (
+        <button
+          type="button"
+          popovertarget={tourId}
+          data-press
+          class="glass-chip transition-feedback absolute right-4 bottom-4 inline-flex min-h-9 items-center gap-2 rounded-lg px-3.5 text-small font-medium text-ink hover:bg-paper"
+        >
+          <Icon name="grid" size={16} />
+          Xem tất cả {count} ảnh
+        </button>
+      )
+    }
+  </div>
+
+  <!-- Photo tour -->
+  <div id={tourId} popover data-motion="sheet" aria-label={`Tất cả ảnh: ${title}`} class="fixed inset-0 h-dvh w-full max-w-none overflow-y-auto">
+    <div class="glass-strong sticky top-0 z-10 flex h-14 items-center gap-3 border-b border-line px-2">
+      <button
+        type="button"
+        popovertarget={tourId}
+        popovertargetaction="hide"
+        data-press
+        aria-label="Đóng"
+        class="transition-feedback grid size-11 place-items-center rounded-full hover:bg-surface"
+      >
+        <Icon name="chevronLeft" />
+      </button>
+      <p class="truncate font-medium">{count} ảnh · {title}</p>
+    </div>
+    <ul class="mx-auto grid max-w-3xl grid-cols-2 gap-2 p-4 md:py-8">
+      {
+        photos.map((photo, index) => (
+          <li class:list={[index % 3 === 0 && 'col-span-2']}>
+            <RoomPhoto
+              photo={photo}
+              alt={alt(index)}
+              prefer="full"
+              sizes={index % 3 === 0 ? '(min-width: 48rem) 736px, 100vw' : '(min-width: 48rem) 364px, 50vw'}
+              class="aspect-[4/3] w-full object-cover"
+            />
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</room-gallery>
+
+<script>
+  class RoomGalleryElement extends HTMLElement {
+    connectedCallback() {
+      const track = this.querySelector<HTMLElement>('[data-track]');
+      const counter = this.querySelector('[data-counter]');
+      if (!track || !counter) return;
+      const slides = [...track.querySelectorAll<HTMLElement>('[data-slide]')];
+      const update = (index: number) => {
+        counter.textContent = `${index + 1} / ${slides.length}`;
+      };
+      const observer = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (entry.isIntersecting) update(slides.indexOf(entry.target as HTMLElement));
+          }
+        },
+        { root: track, threshold: 0.6 },
+      );
+      slides.forEach((slide) => observer.observe(slide));
+      update(0);
+    }
+  }
+
+  customElements.define('room-gallery', RoomGalleryElement);
+</script>

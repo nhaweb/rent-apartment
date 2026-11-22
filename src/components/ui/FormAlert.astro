@@ -1,0 +1,23 @@
+---
+/**
+ * Message above or below a form. `error` for failures, `info` for
+ * confirmations ("Đã gửi email"). Announced to screen readers.
+ */
+interface Props {
+  tone?: 'error' | 'info';
+  class?: string;
+}
+
+const { tone = 'error', class: className } = Astro.props;
+---
+
+<div
+  role={tone === 'error' ? 'alert' : 'status'}
+  class:list={[
+    'rounded-lg border px-4 py-3 text-small',
+    tone === 'error' ? 'border-danger bg-paper text-danger' : 'border-accent-soft bg-accent-soft text-accent-strong',
+    className,
+  ]}
+>
+  <slot />
+</div>

@@ -1,0 +1,135 @@
+---
+/**
+ * Floating "Trợ lý tìm phòng" button and its popover. The chat script
+ * (`room-chat.ts`) is fetched only when the panel opens for the first time.
+ * Without JS the popover still opens and says the assistant needs JS.
+ */
+import Icon from '../ui/Icon.astro';
+
+interface Props {
+  /** Room the visitor is looking at (`/phong/[id]`), sent with every question. */
+  roomId?: string;
+  /** Lift the button above a fixed bottom bar on phones (room detail page). */
+  aboveActionBar?: boolean;
+}
+
+const { roomId, aboveActionBar = false } = Astro.props;
+const sheetId = 'chat-sheet';
+// Frequent questions, always shown above the input (each one answerable by the tools).
+const suggestions = roomId
+  ? [
+      'Chi phí điện nước phòng này thế nào?',
+      'Phòng này cọc bao nhiêu?',
+      'Phòng này có những tiện ích gì?',
+      'Có phòng nào tương tự rẻ hơn không?',
+    ]
+  : [
+      'Phòng dưới 2 triệu',
+      'Phòng dưới 3 triệu ở Ghềnh Ráng',
+      'Phòng có máy lạnh, giờ giấc tự do',
+      'Phòng không chung chủ',
+      'Phòng rộng trên 25 m²',
+      'Phòng cho nuôi thú cưng',
+    ];
+---
+
+<button
+  type="button"
+  popovertarget={sheetId}
+  data-press
+  aria-label="Mở trợ lý tìm phòng"
+  class:list={[
+    'transition-feedback fixed right-4 z-30 grid [body:has(#chat-sheet:popover-open)_&]:invisible size-14 place-items-center rounded-full bg-ink text-inv-ink shadow-float hover:bg-accent-strong md:right-6 md:bottom-6',
+    aboveActionBar ? 'bottom-24 lg:bottom-6' : 'bottom-4',
+  ]}
+>
+  <Icon name="messageCircle" size={24} />
+</button>
+
+<div
+  id={sheetId}
+  popover
+  data-motion="sheet"
+  aria-label="Trợ lý tìm phòng"
+  class="fixed inset-0 bg-paper h-dvh w-full max-w-none md:inset-auto md:right-6 md:bottom-6 md:h-[min(40rem,calc(100dvh-3rem))] md:w-[24rem] md:rounded-card md:border md:border-line md:shadow-float"
+>
+  <room-chat data-room-id={roomId} class="flex h-full flex-col">
+    <div class="flex h-14 shrink-0 items-center justify-between border-b border-line pr-2 pl-4">
+      <p class="font-medium">Trợ lý tìm phòng</p>
+      <button
+        type="button"
+        popovertarget={sheetId}
+        popovertargetaction="hide"
+        data-press
+        aria-label="Đóng"
+        class="transition-feedback grid size-11 place-items-center rounded-full hover:bg-surface"
+      >
+        <Icon name="x" />
+      </button>
+    </div>
+
+    <div data-chat-log role="log" aria-live="polite" class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4">
+      <div data-chat-empty class="grid gap-3">
+        <p class="text-small text-muted">
+          Hỏi bằng câu bình thường, trợ lý sẽ tìm trong các phòng đang còn trống. Trợ lý không có số điện thoại chủ phòng: muốn xem phòng, dùng form “Hẹn xem phòng”.
+        </p>
+        <noscript><p class="text-small text-danger">Cần bật JavaScript để dùng trợ lý.</p></noscript>
+      </div>
+    </div>
+
+    <!-- Frequent questions: stay visible for the whole conversation, swipe sideways. -->
+    <ul
+      data-chat-suggestions
+      hidden
+      aria-label="Câu hỏi thường gặp"
+      class="scrollbar-none flex shrink-0 gap-2 overflow-x-auto border-t border-line px-3 pt-3"
+    >
+      {
+        suggestions.map((text) => (
+          <li class="shrink-0">
+            <button
+              type="button"
+              data-suggestion={text}
+              data-press
+              class="transition-feedback min-h-9 rounded-lg border border-line bg-paper px-3 text-small whitespace-nowrap hover:border-ink disabled:text-muted"
+            >
+              {text}
+            </button>
+          </li>
+        ))
+      }
+    </ul>
+
+    <form data-chat-form hidden class="flex shrink-0 items-end gap-2 p-3">
+      <label for="chat-input" class="sr-only">Câu hỏi của bạn</label>
+      <textarea
+        id="chat-input"
+        name="message"
+        rows="1"
+        maxlength="500"
+        required
+        placeholder="Bạn cần phòng thế nào?"
+        class="max-h-32 min-h-11 flex-1 resize-none rounded-lg border border-line bg-paper px-3 py-2.5 text-body"
+      ></textarea>
+      <button
+        type="submit"
+        data-press
+        aria-label="Gửi"
+        class="transition-feedback grid size-11 shrink-0 place-items-center rounded-full bg-ink text-inv-ink hover:bg-accent-strong disabled:bg-surface disabled:text-muted"
+      >
+        <Icon name="arrowRight" />
+      </button>
+    </form>
+  </room-chat>
+</div>
+
+<script>
+  // Fetch the chat code the first time the panel opens.
+  const sheet = document.getElementById('chat-sheet');
+  const load = () => void import('./room-chat');
+  sheet?.addEventListener('toggle', (event) => {
+    if ((event as ToggleEvent).newState === 'open') load();
+  });
+  // Warm it up on intent, before the click lands.
+  document.querySelector('[popovertarget="chat-sheet"]')?.addEventListener('pointerenter', load, { once: true });
+</script>

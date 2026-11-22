@@ -1,0 +1,50 @@
+---
+/**
+ * Wraps a GET form. Without JS the form submits as-is. With JS, empty fields
+ * are dropped from the URL, repeated values (checkboxes) join into one
+ * comma list, and `auto` applies a change at once.
+ */
+interface Props {
+  /** Submit as soon as any field changes. */
+  auto?: boolean;
+  class?: string;
+}
+
+const { auto = false, class: className } = Astro.props;
+---
+
+<get-form data-auto={auto ? '' : undefined} class:list={['block', className]}>
+  <slot />
+</get-form>
+
+<script>
+  class GetFormElement extends HTMLElement {
+    connectedCallback() {
+      const form = this.querySelector('form');
+      if (!form) return;
+      if (this.hasAttribute('data-auto')) {
+        this.querySelectorAll<HTMLElement>('[data-no-js]').forEach((el) => el.setAttribute('hidden', ''));
+        form.addEventListener('change', () => this.go(form));
+      }
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        this.go(form);
+      });
+    }
+
+    go(form: HTMLFormElement) {
+      const values = new Map<string, string[]>();
+      for (const [name, value] of new FormData(form)) {
+        if (typeof value !== 'string' || !value) continue;
+        values.set(name, [...(values.get(name) ?? []), value]);
+      }
+      const query = [...values]
+        .map(([name, list]) => `${encodeURIComponent(name)}=${list.map(encodeURIComponent).join(',')}`)
+        .join('&');
+      const action = new URL(form.action, window.location.href).pathname;
+      window.location.assign(`${action}${query ? `?${query}` : ''}`);
+    }
+  }
+
+  customElements.define('get-form', GetFormElement);
+</script>

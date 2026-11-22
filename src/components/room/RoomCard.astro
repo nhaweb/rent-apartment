@@ -1,0 +1,70 @@
+---
+import type { Room } from '../../types';
+import RoomPhoto from './RoomPhoto.astro';
+import { cardTags } from '../../lib/amenities';
+import { formatArea, formatPriceShort, isRecentlyPosted, postedDate } from '../../lib/format';
+import { formatPlace } from '../../lib/locations';
+
+interface Props {
+  room: Room;
+  /** Heading level inside the surrounding section. */
+  headingLevel?: 'h2' | 'h3';
+  /** The first cards in view load eagerly. */
+  eager?: boolean;
+  /** Smaller text for horizontal rows. */
+  compact?: boolean;
+  /** `sizes` for the photo; defaults suit the listing grid. */
+  sizes?: string;
+}
+
+const {
+  room,
+  headingLevel: Heading = 'h3',
+  eager = false,
+  compact = false,
+  sizes = '(min-width: 80rem) 300px, (min-width: 64rem) 33vw, (min-width: 40rem) 50vw, 100vw',
+} = Astro.props;
+const cover = room.photos[0];
+const isNew = isRecentlyPosted(postedDate(room));
+const details = [formatArea(room.area), ...cardTags(room.amenities, compact ? 1 : 2)].join(' · ');
+---
+
+<article class="h-full">
+  <a href={`/phong/${room.id}`} class="group block h-full">
+    <div class="relative aspect-[4/3] overflow-hidden rounded-card bg-surface">
+      {
+        cover && (
+          <RoomPhoto
+            photo={cover}
+            alt={room.title}
+            sizes={sizes}
+            class="size-full object-cover"
+            loading={eager ? 'eager' : 'lazy'}
+          />
+        )
+      }
+      {
+        isNew && (
+          <span class="absolute top-3 left-3 rounded-md bg-highlight px-2.5 py-1 text-caption font-medium text-ink">Mới đăng</span>
+        )
+      }
+    </div>
+    <div class:list={[compact ? 'pt-2.5' : 'pt-3']}>
+      <Heading
+        class:list={[
+          'line-clamp-1 font-medium text-ink group-hover:underline group-hover:decoration-1 group-hover:underline-offset-4',
+          compact ? 'text-small' : 'text-body',
+        ]}
+        title={room.title}
+      >
+        {room.title}
+      </Heading>
+      <p class="mt-0.5 line-clamp-1 text-small text-muted">{formatPlace(room)}</p>
+      <p class="line-clamp-1 text-small text-muted">{details}</p>
+      <p class="mt-1.5">
+        <span class:list={['font-medium text-ink', compact ? 'text-body' : 'text-title']}>{formatPriceShort(room.price)}</span>
+        <span class="text-small text-muted">/tháng</span>
+      </p>
+    </div>
+  </a>
+</article>

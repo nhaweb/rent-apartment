@@ -1,0 +1,52 @@
+---
+/**
+ * Labeled native <select>. Pass <option> elements as children.
+ */
+import type { HTMLAttributes } from 'astro/types';
+
+type Props = Omit<HTMLAttributes<'select'>, 'class' | 'id'> & {
+  id: string;
+  label: string;
+  optional?: boolean;
+  error?: string;
+  class?: string;
+};
+
+const { id, label, optional = false, error, class: className, ...rest } = Astro.props;
+const errorId = error ? `${id}-error` : undefined;
+---
+
+<div class={className}>
+  <label for={id} class="mb-1.5 block text-small font-medium text-ink">
+    {label}
+    {optional && <span class="font-normal text-muted"> (không bắt buộc)</span>}
+  </label>
+  <ui-select class="relative block">
+    <select
+      id={id}
+      aria-invalid={error ? 'true' : undefined}
+      aria-describedby={errorId}
+      class:list={[
+        'transition-feedback block min-h-11 w-full appearance-none rounded-lg border bg-paper py-2.5 pr-10 pl-3 text-body text-ink',
+        error ? 'border-danger' : 'border-line hover:border-muted focus-visible:border-accent',
+      ]}
+      {...rest}
+    >
+      <slot />
+    </select>
+    <svg
+      data-chevron
+      class="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.75"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <path d="m6 9 6 6 6-6"></path>
+    </svg>
+  </ui-select>
+  {error && <p id={errorId} class="mt-1.5 text-small text-danger">{error}</p>}
+</div>

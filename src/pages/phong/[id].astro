@@ -1,0 +1,278 @@
+---
+import { actions } from 'astro:actions';
+import PublicLayout from '../../layouts/PublicLayout.astro';
+import RoomGallery from '../../components/room/RoomGallery.astro';
+import RoomRow from '../../components/room/RoomRow.astro';
+import Button from '../../components/ui/Button.astro';
+import Icon from '../../components/ui/Icon.astro';
+import ContactForm from '../../components/contact/ContactForm.astro';
+import { amenityInfo, roomHighlights } from '../../lib/amenities';
+import { getRentedRoom, getRoomById, getSimilarRooms } from '../../lib/rooms';
+import { formatPlace, PROVINCE, wardLongLabel, wardShortLabel } from '../../lib/locations';
+import { slugify } from '../../lib/slug';
+import { photoUrl } from '../../lib/photo-urls';
+import { formatArea, formatPrice, formatPriceShort, formatPostedAt, formatUtilities, postedDate } from '../../lib/format';
+import { submittedValues } from '../../lib/auth';
+import { formErrors } from '../../lib/form-errors';
+import { setPublicCache } from '../../lib/http-cache';
+import { breadcrumbJsonLd, roomCrumbs, roomJsonLd, truncateText } from '../../lib/seo';
+import { SITE_CITY } from '../../lib/site';
+import { roomFiltersToQuery } from '../../lib/validation/room-filters';
+
+const id = Astro.params.id ?? '';
+const room = await getRoomById(id);
+if (!room) {
+  // Rented: say so (410) with similar rooms. Hidden or unknown: a plain 404.
+  const rented = await getRentedRoom(id);
+  if (rented) Astro.locals.rentedRoom = rented;
+  return Astro.rewrite('/404');
+}
+
+// Contact form (zero JS): redirect after a successful send (PRG), else show errors.
+const contactResult = Astro.getActionResult(actions.createContactRequest);
+if (contactResult && !contactResult.error) {
+  return Astro.redirect(`/phong/${encodeURIComponent(room.id)}?da-gui=1#lien-he`, 303);
+}
+const contactValues = contactResult?.error ? await submittedValues(Astro.request) : {};
+const contactErrors = formErrors(contactResult?.error);
+const contactSent = Astro.url.searchParams.has('da-gui');
+setPublicCache(Astro);
+
+const similar = await getSimilarRooms(room, 5);
+const cover = room.photos[0];
+// Share preview: the full-size cover (WebP, at most 1600px).
+const shareImage = cover ? photoUrl(cover.key) : undefined;
+
+const place = formatPlace(room);
+const location = `${room.address}, ${place}`;
+// Our map around the pin when there is one; otherwise a Google Maps search for the area.
+const MAP_SPAN = 0.006;
+const areaMapUrl = room.location
+  ? `/ban-do?bbox=${[room.location.lat - MAP_SPAN, room.location.lng - MAP_SPAN, room.location.lat + MAP_SPAN, room.location.lng + MAP_SPAN].map((n) => n.toFixed(5)).join(',')}`
+  : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([room.neighborhood, wardLongLabel(room.ward), PROVINCE].filter(Boolean).join(', '))}`;
+const wardHref = `/phong${roomFiltersToQuery({ place: slugify(room.ward) })}`;
+const crumbs = roomCrumbs(room);
+const site = Astro.site ?? Astro.url;
+const paragraphs = room.description.split(/\n{2,}/);
+const highlights = roomHighlights(room.amenities);
+const amenities = room.amenities.map(amenityInfo);
+const months = room.deposit > 0 ? Math.round((room.deposit / room.price) * 10) / 10 : 0;
+const depositNote = months > 0 ? `${String(months).replace('.', ',')} tháng tiền phòng` : 'Không cần cọc';
+
+const monthlyCosts = [{ label: 'Giá thuê', value: formatPrice(room.price) }, ...formatUtilities(room.utilities)];
+const deposit = room.deposit > 0 ? formatPrice(room.deposit) : 'Không cần cọc';
+---
+
+<PublicLayout
+  title={`${room.title} | ${formatPriceShort(room.price)}/tháng`}
+  description={truncateText(`${formatPriceShort(room.price)}/tháng, ${formatArea(room.area)}, ${place}. ${paragraphs[0]}`)}
+  image={shareImage}
+  imageWidth={cover?.width}
+  imageHeight={cover?.height}
+  ogType="article"
+  noindex={contactSent}
+  chat
+  jsonLd={[roomJsonLd(room, site), breadcrumbJsonLd(crumbs, site)]}
+  chatRoomId={room.id}
+>
+  <div class="wrap pb-28 lg:pb-0">
+    <nav aria-label="Đường dẫn" class="pt-2 text-small text-muted md:pt-4">
+      <ol class="flex flex-wrap items-center gap-x-2">
+        <li><a href="/phong" class="link inline-flex min-h-11 items-center">Phòng cho thuê</a></li>
+        <li aria-hidden="true"><Icon name="chevronRight" size={14} /></li>
+        {
+          crumbs.slice(1, -1).map((crumb, index) => (
+            <>
+              {index > 0 && (
+                <li aria-hidden="true">
+                  <Icon name="chevronRight" size={14} />
+                </li>
+              )}
+              <li>
+                <a href={crumb.path} class="link inline-flex min-h-11 items-center">
+                  {crumb.name}
+                </a>
+              </li>
+            </>
+          ))
+        }
+      </ol>
+    </nav>
+
+    <!-- Title above the gallery on md+, below it on phones (Airbnb order) -->
+    <div class="flex flex-col">
+      <div class="order-2 pt-5 md:order-1 md:pt-1 md:pb-5">
+        <h1 class="text-display">{room.title}</h1>
+        <p class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-small text-muted">
+          <span class="inline-flex items-center gap-1.5">
+            <Icon name="mapPin" size={16} />
+            {place}
+          </span>
+          <span aria-hidden="true">·</span>
+          <span>{formatPostedAt(postedDate(room))}</span>
+        </p>
+      </div>
+      <div class="order-1 md:order-2">
+        <RoomGallery photos={room.photos} title={room.title} />
+      </div>
+    </div>
+
+    <div class="mt-6 grid gap-10 md:mt-10 lg:grid-cols-[minmax(0,1fr)_23rem] lg:gap-16">
+      <article class="divide-y divide-line">
+        <!-- Overview -->
+        <section class="pb-6" aria-labelledby="overview-heading">
+          <h2 id="overview-heading" class="text-title">Phòng {formatArea(room.area)} ở {place}</h2>
+          <ul class="mt-3 flex flex-wrap gap-2">
+            <li class="inline-flex min-h-9 items-center gap-2 rounded-lg border border-line px-3 text-small">
+              <Icon name="maximize" size={16} class="text-muted" />
+              {formatArea(room.area)}
+            </li>
+            <li class="inline-flex min-h-9 items-center gap-2 rounded-lg border border-line px-3 text-small">
+              <Icon name="wallet" size={16} class="text-muted" />
+              Cọc {room.deposit > 0 ? formatPriceShort(room.deposit) : '0 đ'}
+            </li>
+            <li class="inline-flex min-h-9 items-center gap-2 rounded-lg border border-line px-3 text-small">
+              <Icon name="check" size={16} class="text-muted" />
+              {room.amenities.length} tiện ích
+            </li>
+          </ul>
+        </section>
+
+        <!-- Highlights -->
+        <section class="py-6" aria-label="Điểm nổi bật">
+          <ul class="grid gap-5">
+            {
+              highlights.map((highlight) => (
+                <li class="flex gap-4">
+                  <Icon name={highlight.icon} size={24} class="mt-0.5" />
+                  <div>
+                    <p class="font-medium">{highlight.label}</p>
+                    <p class="text-small text-muted">{highlight.highlight}</p>
+                  </div>
+                </li>
+              ))
+            }
+            <li class="flex gap-4">
+              <Icon name="shieldCheck" size={24} class="mt-0.5" />
+              <div>
+                <p class="font-medium">Chủ phòng đăng trực tiếp</p>
+                <p class="text-small text-muted">Bạn gửi yêu cầu qua trang này, chủ phòng gọi lại. Không qua môi giới.</p>
+              </div>
+            </li>
+          </ul>
+        </section>
+
+        <!-- Description -->
+        <section class="py-8" aria-labelledby="description-heading">
+          <h2 id="description-heading" class="text-title">Mô tả phòng</h2>
+          <div class="mt-3 max-w-2xl space-y-4 leading-relaxed">
+            {paragraphs.map((paragraph) => <p class="whitespace-pre-line">{paragraph}</p>)}
+          </div>
+        </section>
+
+        <!-- Amenities -->
+        {
+          amenities.length > 0 && (
+            <section class="py-8" aria-labelledby="amenities-heading">
+              <h2 id="amenities-heading" class="text-title">Tiện ích có sẵn</h2>
+              <ul class="mt-4 grid gap-x-8 sm:grid-cols-2">
+                {amenities.map((amenity) => (
+                  <li class="flex min-h-11 items-center gap-4 py-1">
+                    <Icon name={amenity.icon} size={22} />
+                    {amenity.label}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )
+        }
+
+        <!-- Costs -->
+        <section class="py-8" aria-labelledby="costs-heading">
+          <h2 id="costs-heading" class="text-title">Chi phí hàng tháng</h2>
+          <dl class="mt-4 max-w-md">
+            {
+              monthlyCosts.map((cost) => (
+                <div class="flex items-baseline justify-between gap-4 border-b border-line py-3">
+                  <dt class="text-muted">{cost.label}</dt>
+                  <dd class="text-right font-medium">{cost.value}</dd>
+                </div>
+              ))
+            }
+            <div class="flex items-baseline justify-between gap-4 py-3">
+              <dt class="text-muted">Tiền cọc <span class="text-small">(một lần)</span></dt>
+              <dd class="text-right font-medium">{deposit}</dd>
+            </div>
+          </dl>
+          <p class="mt-3 text-small text-muted">“Thỏa thuận”: chủ phòng chưa ghi giá, hỏi lại khi xem phòng.</p>
+        </section>
+
+        <!-- Location -->
+        <section class="py-8" aria-labelledby="location-heading">
+          <h2 id="location-heading" class="text-title">Vị trí</h2>
+          <div class="mt-4 flex flex-wrap items-center justify-between gap-4 rounded-card border border-line bg-surface p-4 sm:p-5">
+            <div class="flex min-w-0 gap-3">
+              <Icon name="mapPin" size={24} class="mt-0.5 text-accent" />
+              <div>
+                <p class="font-medium">{location}</p>
+                <p class="mt-0.5 text-small text-muted">Chủ phòng gửi địa chỉ cụ thể khi hẹn giờ xem phòng.</p>
+              </div>
+            </div>
+            <Button
+              href={areaMapUrl}
+              variant="outline"
+              size="sm"
+              {...(room.location ? {} : { rel: "noopener", target: "_blank" })}
+            >
+              Xem trên bản đồ
+            </Button>
+          </div>
+        </section>
+      </article>
+
+      <!-- Contact card -->
+      <aside id="lien-he" aria-labelledby="contact-heading" class="scroll-mt-24 lg:sticky lg:top-28 lg:self-start">
+        <div class="rounded-card border border-line bg-paper p-5 sm:p-6 lg:shadow-float">
+          <p>
+            <span class="text-title font-medium text-ink">{formatPriceShort(room.price)}</span>
+            <span class="text-muted">/tháng</span>
+          </p>
+          <dl class="mt-4 grid grid-cols-2 rounded-lg border border-line">
+            <div class="px-3 py-2">
+              <dt class="text-caption font-medium">Diện tích</dt>
+              <dd class="text-small text-muted">{formatArea(room.area)}</dd>
+            </div>
+            <div class="border-l border-line px-3 py-2">
+              <dt class="text-caption font-medium">Tiền cọc</dt>
+              <dd class="text-small text-muted">{depositNote}</dd>
+            </div>
+          </dl>
+          <h2 id="contact-heading" class="mt-6 text-title">Hẹn xem phòng này</h2>
+          <div class="mt-4">
+            <ContactForm roomId={room.id} values={contactValues} errors={contactErrors} sent={contactSent} />
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    {
+      similar.length > 0 && (
+        <div class="mt-8 border-t border-line pt-10 lg:mt-16">
+          <RoomRow id="similar-heading" title={`Phòng khác ở ${SITE_CITY}`} subtitle="Cùng khu vực hoặc giá gần bằng" href={wardHref} rooms={similar} />
+        </div>
+      )
+    }
+  </div>
+
+  <!-- Phone action bar: price and the one action, always in reach. Outline, so the
+       form submit stays the only primary button once the form is on screen. -->
+  <div class="glass-strong fixed inset-x-0 bottom-0 z-30 border-t border-line lg:hidden">
+    <div class="wrap flex items-center justify-between gap-4 py-3">
+      <p class="leading-tight">
+        <span class="block"><span class="text-title font-medium text-ink">{formatPriceShort(room.price)}</span><span class="text-small text-muted">/tháng</span></span>
+        <span class="text-small text-muted">{formatArea(room.area)} · {room.neighborhood ?? wardShortLabel(room.ward)}</span>
+      </p>
+      <Button href="#lien-he" variant="outline">Hẹn xem phòng</Button>
+    </div>
+  </div>
+</PublicLayout>

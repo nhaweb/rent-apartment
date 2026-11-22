@@ -1,0 +1,95 @@
+---
+/**
+ * Map pin for a room (dashboard only). `<location-picker>` loads MapLibre
+ * when it scrolls into view; tap/click the map or drag the pin to set it.
+ * The pin lives in two hidden inputs (`lat`, `lng`), so the form posts it
+ * like any field and keeps it unchanged without JS.
+ * Follows the ward select (`[data-ward-select]` in the same form) while no
+ * pin is set. Validation: `optionalCoordinate` in `src/lib/validation/room.ts`.
+ */
+import 'maplibre-gl/dist/maplibre-gl.css';
+import Icon from '../../ui/Icon.astro';
+import { SITE_MAP_CENTER } from '../../../lib/site';
+import type { GeoPoint } from '../../../types';
+
+interface Props {
+  lat: string;
+  lng: string;
+  /** Ward name -> where to open the map for that ward. */
+  wardCenters: Record<string, GeoPoint>;
+  error?: string;
+}
+
+const { lat, lng, wardCenters, error } = Astro.props;
+const hasPin = lat !== '' && lng !== '';
+---
+
+<location-picker
+  data-ward-centers={JSON.stringify(wardCenters)}
+  data-default-center={JSON.stringify(SITE_MAP_CENTER)}
+  class="block"
+>
+  <input type="hidden" name="lat" value={lat} data-lat />
+  <input type="hidden" name="lng" value={lng} data-lng />
+
+  <div
+    data-map
+    role="region"
+    aria-label="Bản đồ chọn vị trí phòng"
+    aria-describedby="location-hint"
+    class:list={[
+      'relative h-72 overflow-hidden rounded-lg border bg-surface sm:h-80',
+      error ? 'border-danger' : 'border-line',
+    ]}
+  >
+    <p data-map-placeholder class="absolute inset-0 grid place-items-center p-4 text-center text-small text-muted">
+      <span>
+        <noscript>Cần bật JavaScript để đặt vị trí trên bản đồ. Vị trí đã lưu vẫn được giữ nguyên.</noscript>
+        <span data-loading hidden>Đang tải bản đồ...</span>
+      </span>
+    </p>
+  </div>
+
+  {error && <p class="mt-1.5 text-small text-danger">{error}</p>}
+
+  <div class="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+    <p class="flex items-center gap-2 text-small" aria-live="polite">
+      <Icon name="mapPin" size={16} class="shrink-0 text-muted" />
+      <span data-status>{hasPin ? 'Đã đặt vị trí. Kéo ghim để sửa.' : 'Chưa đặt vị trí. Phòng sẽ không hiện trên bản đồ.'}</span>
+    </p>
+    <div class="flex flex-wrap gap-1" data-controls hidden>
+      <button
+        type="button"
+        data-place-center
+        data-press
+        class="transition-feedback inline-flex min-h-11 items-center gap-2 rounded-lg px-3 text-small font-medium text-ink hover:bg-surface active:bg-line"
+      >
+        <Icon name="mapPin" size={16} />
+        Đặt ghim ở giữa bản đồ
+      </button>
+      <button
+        type="button"
+        data-clear
+        data-press
+        hidden={!hasPin}
+        class="transition-feedback inline-flex min-h-11 items-center gap-2 rounded-lg px-3 text-small font-medium text-danger hover:bg-surface active:bg-line"
+      >
+        <Icon name="x" size={16} />
+        Xóa vị trí
+      </button>
+    </div>
+  </div>
+</location-picker>
+
+<style is:global>
+  /* maplibre-gl.css sets Helvetica on the map; keep the app font for controls. */
+  location-picker .maplibregl-map {
+    font-family: var(--font-sans);
+  }
+</style>
+
+<script>
+  import { LocationPickerElement } from './location-picker';
+
+  if (!customElements.get('location-picker')) customElements.define('location-picker', LocationPickerElement);
+</script>

@@ -1,0 +1,129 @@
+---
+import PublicLayout from '../../layouts/PublicLayout.astro';
+import Button from '../../components/ui/Button.astro';
+import Icon from '../../components/ui/Icon.astro';
+import Pagination from '../../components/ui/Pagination.astro';
+import RoomCard from '../../components/room/RoomCard.astro';
+import RoomRow from '../../components/room/RoomRow.astro';
+import FilterButton from '../../components/room/FilterButton.astro';
+import RoomFilters from '../../components/room/RoomFilters.astro';
+import ActiveFilters from '../../components/room/ActiveFilters.astro';
+import SortSelect from '../../components/room/SortSelect.astro';
+import { getAmenityOptions, getWardOptions, getLatestRooms, searchRooms } from '../../lib/rooms';
+import { placeLabel } from '../../lib/locations';
+import { setPublicCache } from '../../lib/http-cache';
+import { isIndexableListing, listingCanonicalPath } from '../../lib/seo';
+import { SITE_CITY } from '../../lib/site';
+import { hasActiveFilters, parseRoomFilters, roomFiltersToQuery } from '../../lib/validation/room-filters';
+
+/** Below this many matches, suggest other rooms so the page is never a dead end. */
+const FEW_RESULTS = 4;
+
+const filters = parseRoomFilters(Astro.url.searchParams);
+const filtered = hasActiveFilters(filters);
+const [result, wards, amenities] = await Promise.all([searchRooms(filters), getWardOptions(), getAmenityOptions()]);
+
+const suggestions =
+  filtered && result.total < FEW_RESULTS
+    ? (await getLatestRooms(10)).filter((room) => !result.rooms.some((shown) => shown.id === room.id)).slice(0, 5)
+    : [];
+
+// ?trang= past the last page: send to the last page instead of repeating it under another URL.
+if ((filters.page ?? 1) > result.page) {
+  return Astro.redirect(`/phong${roomFiltersToQuery({ ...filters, page: result.page })}`, 301);
+}
+setPublicCache(Astro);
+
+const place = (filters.place && placeLabel(filters.place)) || SITE_CITY;
+const title = `Phòng cho thuê ở ${place}${result.page > 1 ? `, trang ${result.page}` : ''}`;
+const hrefFor = (page: number) => `/phong${roomFiltersToQuery({ ...filters, page })}`;
+---
+
+<PublicLayout
+  title={`${title} | ${result.total} phòng đang trống`}
+  description={`${result.total} phòng trọ, studio và căn hộ đang trống ở ${place}. Lọc theo giá, diện tích và tiện ích, xem ảnh và gửi yêu cầu xem phòng cho chủ phòng.`}
+  wards={wards}
+  filters={filters}
+  canonical={listingCanonicalPath(filters, result.page)}
+  noindex={!isIndexableListing(filters, result.total)}
+  chat
+>
+  <RoomFilters filters={filters} wards={wards} amenities={amenities} total={result.total} />
+
+  <section class="wrap pt-6 sm:pt-8" aria-labelledby="listing-heading">
+    <div class="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+      <div>
+        <h1 id="listing-heading" class="text-display">Phòng cho thuê ở {place}</h1>
+        <p class="mt-1 text-muted" aria-live="polite">
+          {result.total > 0 ? `${result.total} phòng đang trống${filtered ? ' khớp bộ lọc' : ''}` : 'Chưa có phòng khớp bộ lọc'}
+        </p>
+      </div>
+      <div class="flex items-center gap-2">
+        {result.total > 1 && <SortSelect filters={filters} />}
+        <FilterButton filters={filters} />
+      </div>
+    </div>
+
+    {
+      filtered && (
+        <div class="mt-4">
+          <ActiveFilters filters={filters} />
+        </div>
+      )
+    }
+
+    {
+      result.rooms.length > 0 ? (
+        <>
+          <h2 class="sr-only">Danh sách phòng</h2>
+          <ul class="mt-6 grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {result.rooms.map((room, index) => (
+              <li>
+                <RoomCard room={room} eager={index < 2} />
+              </li>
+            ))}
+          </ul>
+          <div class="mt-14">
+            <Pagination page={result.page} pageCount={result.pageCount} hrefFor={hrefFor} />
+          </div>
+        </>
+      ) : (
+        <div class="mt-8 rounded-card border border-line bg-surface px-6 py-12 text-center">
+          <h2 class="text-title">Không có phòng nào khớp bộ lọc này</h2>
+          <p class="mx-auto mt-2 max-w-md text-muted">Thử bỏ bớt một tiện ích, nới mức giá hoặc xem khu vực khác.</p>
+          <Button href="/phong" variant="outline" class="mt-6">
+            Xem tất cả phòng
+          </Button>
+        </div>
+      )
+    }
+  </section>
+
+  {
+    result.total > 0 && (
+      <div class="pointer-events-none sticky bottom-[max(1.5rem,env(safe-area-inset-bottom))] z-20 mt-10 flex justify-center">
+        <a
+          href={`/ban-do${roomFiltersToQuery({ ...filters, page: 1 })}`}
+          data-press
+          class="transition-feedback pointer-events-auto inline-flex min-h-11 items-center gap-2 rounded-lg bg-ink px-5 text-small font-medium text-inv-ink shadow-float hover:bg-accent-strong"
+        >
+          Hiện bản đồ <Icon name="map" size={18} />
+        </a>
+      </div>
+    )
+  }
+
+  {
+    suggestions.length > 0 && (
+      <div class="wrap pt-16">
+        <RoomRow
+          id="suggestions-heading"
+          title="Có thể bạn cũng thích"
+          subtitle="Phòng mới đăng ngoài bộ lọc của bạn"
+          href="/phong"
+          rooms={suggestions}
+        />
+      </div>
+    )
+  }
+</PublicLayout>

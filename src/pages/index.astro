@@ -1,16 +1,198 @@
 ---
+import PublicLayout from '../layouts/PublicLayout.astro';
+import Icon from '../components/ui/Icon.astro';
+import RoomRow from '../components/room/RoomRow.astro';
+import SearchBar from '../components/room/SearchBar.astro';
+import { amenityBySlug } from '../lib/amenities';
+import { getLatestRooms, getRoomStats, getWardOptions, searchRooms, wardsByCount } from '../lib/rooms';
+import { wardLongLabel } from '../lib/locations';
+import { formatPriceShort } from '../lib/format';
+import { setPublicCache } from '../lib/http-cache';
+import { websiteJsonLd } from '../lib/seo';
+import { getAuthState } from '../lib/auth';
+import { LANDLORD_SIGN_IN_PATH, LANDLORD_SIGN_UP_PATH, LANDLORD_START_PATH, SITE_CITY, SITE_NAME } from '../lib/site';
+import { roomFiltersToQuery, type RoomFilters } from '../lib/validation/room-filters';
+
+/** A themed row only shows when it has at least this many rooms. */
+const MIN_ROW = 3;
+/** At most this many ward rows; the "by area" grid covers the rest. */
+const WARD_ROWS = 2;
+const ROW_SIZE = 8;
+
+const [latest, stats, wards] = await Promise.all([getLatestRooms(ROW_SIZE), getRoomStats(), getWardOptions()]);
+// Landlord CTA wording; cached per request, shared with the header (PublicLayout).
+const signedIn = Boolean(await getAuthState(Astro));
+
+interface Row {
+  id: string;
+  title: string;
+  subtitle: string;
+  filters: Partial<RoomFilters>;
+}
+
+const furnished = amenityBySlug('day-du-noi-that');
+const themed: Row[] = [
+  ...wardsByCount(wards)
+    .filter((ward) => ward.count >= MIN_ROW)
+    .slice(0, WARD_ROWS)
+    .map((ward) => ({
+      id: `row-${ward.slug}`,
+      title: `Phòng ở ${wardLongLabel(ward.name)}`,
+      subtitle: `${ward.count} phòng · từ ${formatPriceShort(ward.minPrice)}/tháng`,
+      filters: { place: ward.slug },
+    })),
+  {
+    id: 'row-budget',
+    title: 'Dưới 2 triệu mỗi tháng',
+    subtitle: 'Giá thấp nhất trước, hợp với sinh viên',
+    filters: { price: { max: 2_000_000 }, sort: 'gia-thap' },
+  },
+  ...(furnished
+    ? [
+        {
+          id: 'row-furnished',
+          title: 'Đầy đủ nội thất, dọn vào ở ngay',
+          subtitle: 'Có sẵn giường, tủ, bếp và máy lạnh',
+          filters: { amenities: [furnished.slug] },
+        },
+      ]
+    : []),
+];
+
+const rows = (
+  await Promise.all(
+    themed.map(async (row) => {
+      const result = await searchRooms({ ...row.filters, page: 1 }, ROW_SIZE);
+      return { ...row, rooms: result.rooms, href: `/phong${roomFiltersToQuery(row.filters)}` };
+    }),
+  )
+).filter((row) => row.rooms.length >= MIN_ROW);
+
+const steps = [
+  {
+    icon: 'search' as const,
+    title: 'Lọc theo khu vực, giá và tiện ích',
+    text: 'Mỗi phòng ghi rõ giá thuê, tiền cọc, diện tích và tiện ích có sẵn.',
+  },
+  {
+    icon: 'grid' as const,
+    title: 'Xem ảnh thật của chủ phòng',
+    text: 'Chủ phòng tự đăng ảnh, mô tả giá điện nước và giờ giấc ở trọ.',
+  },
+  {
+    icon: 'shieldCheck' as const,
+    title: 'Gửi yêu cầu, không cần tài khoản',
+    text: 'Để lại tên và số điện thoại, chủ phòng gọi lại hẹn giờ xem.',
+  },
+];
+setPublicCache(Astro);
 ---
 
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
-	</head>
-	<body>
-		<h1>Astro</h1>
-	</body>
-</html>
+<PublicLayout
+  title={`Phòng trọ ${SITE_CITY}: phòng, studio, căn hộ cho thuê chính chủ | ${SITE_NAME}`}
+  description={stats.availableCount > 0
+    ? `${stats.availableCount} phòng đang trống ở ${SITE_CITY}, giá từ ${formatPriceShort(stats.minPrice)}/tháng. Xem ảnh, giá, tiền cọc và gửi yêu cầu xem phòng cho chủ phòng.`
+    : `Phòng trọ cho thuê chính chủ ở ${SITE_CITY}. Xem ảnh, giá, tiền cọc và gửi yêu cầu xem phòng cho chủ phòng.`}
+  wards={wards}
+  headerSearch={false}
+  jsonLd={[websiteJsonLd(SITE_NAME, Astro.site ?? Astro.url)]}
+>
+  <!-- Search -->
+  <section class="wrap pt-6 text-center md:pt-12" aria-labelledby="home-heading">
+    <h1 id="home-heading" class="mx-auto max-w-2xl text-display">Thuê phòng ở {SITE_CITY}, hỏi thẳng chủ phòng</h1>
+    {stats.availableCount > 0 && (
+      <p class="mt-2 text-muted">
+        {stats.availableCount} phòng đang trống · giá từ {formatPriceShort(stats.minPrice)}/tháng
+      </p>
+    )}
+    <div class="mt-6 flex justify-center">
+      <SearchBar wards={wards} size="lg" />
+    </div>
+  </section>
+
+  <!-- Rows -->
+  <div class="wrap grid grid-cols-1 gap-12 pt-10 md:gap-14 md:pt-14">
+    {latest.length >= MIN_ROW && (
+      <RoomRow id="row-latest" title="Phòng mới đăng" subtitle="Tin mới nhất xếp trước" href="/phong" rooms={latest} eager />
+    )}
+    {rows.map((row) => <RoomRow id={row.id} title={row.title} subtitle={row.subtitle} href={row.href} rooms={row.rooms} />)}
+  </div>
+
+  <!-- By ward -->
+  <section class="wrap pt-16 md:pt-20" aria-labelledby="ward-heading">
+    <h2 id="ward-heading" class="text-title">Tìm phòng theo khu vực</h2>
+    <ul class="mt-4 grid grid-cols-2 gap-x-6 border-t border-line pt-2 sm:grid-cols-3 lg:grid-cols-5">
+      {
+        wards.map((ward) => (
+          <li>
+            <a href={`/phong${roomFiltersToQuery({ place: ward.slug })}`} class="group block py-3">
+              <span class="block font-medium group-hover:underline group-hover:decoration-1 group-hover:underline-offset-4">
+                {ward.label}
+              </span>
+              <span class="block text-small text-muted">
+                {ward.count} phòng · từ {formatPriceShort(ward.minPrice)}
+              </span>
+              {ward.neighborhoods.length > 0 && (
+                <span class="mt-0.5 line-clamp-2 block text-caption text-muted">
+                  {ward.neighborhoods.map((neighborhood) => neighborhood.name).join(', ')}
+                </span>
+              )}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </section>
+
+  <!-- How it works -->
+  <section class="wrap pt-16 md:pt-20" aria-labelledby="steps-heading">
+    <div class="rounded-card bg-surface px-5 py-8 sm:px-8 md:py-10">
+      <h2 id="steps-heading" class="text-title">Thuê phòng trong ba bước</h2>
+      <ol class="mt-6 grid gap-6 md:grid-cols-3 md:gap-8">
+        {
+          steps.map((step, index) => (
+            <li class="flex gap-4">
+              <span class="grid size-11 shrink-0 place-items-center rounded-full border border-line bg-paper text-accent">
+                <Icon name={step.icon} size={20} />
+              </span>
+              <div>
+                <h3 class="font-medium">
+                  <span class="sr-only">Bước {index + 1}: </span>
+                  {step.title}
+                </h3>
+                <p class="mt-1 text-small text-muted">{step.text}</p>
+              </div>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+  </section>
+
+  <!-- For landlords: the page's one large CTA block (inv-*) -->
+  <section class="wrap pt-10 md:pt-12" aria-labelledby="landlord-heading">
+    <div class="flex flex-col gap-5 rounded-card bg-inv-bg px-5 py-8 text-inv-ink sm:px-8 md:flex-row md:items-center md:justify-between md:py-10">
+      <div class="max-w-xl">
+        <h2 id="landlord-heading" class="text-title">Bạn có phòng cho thuê ở {SITE_CITY}?</h2>
+        <p class="mt-2 text-inv-muted">
+          Đăng tin miễn phí, tự quản lý ảnh, giá và trạng thái phòng. Người thuê gửi yêu cầu xem phòng thẳng cho bạn.
+        </p>
+      </div>
+      <div class="flex shrink-0 flex-col items-start gap-2 md:items-end">
+        <a
+          href={signedIn ? LANDLORD_START_PATH : LANDLORD_SIGN_UP_PATH}
+          data-press
+          class="transition-feedback inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-paper px-5 font-medium text-ink hover:bg-surface"
+        >
+          <Icon name={signedIn ? 'plus' : 'key'} size={18} />
+          {signedIn ? 'Đăng phòng mới' : 'Cho thuê phòng'}
+        </a>
+        {!signedIn && (
+          <p class="text-small text-inv-muted">
+            Đã có tài khoản? <a href={LANDLORD_SIGN_IN_PATH} class="link text-inv-ink">Đăng nhập</a>
+          </p>
+        )}
+      </div>
+    </div>
+  </section>
+</PublicLayout>

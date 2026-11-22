@@ -1,0 +1,63 @@
+---
+/**
+ * /ban-do: find rooms on a map. Takes the same filter params as /phong, plus
+ * `bbox=south,west,north,east` for the visible area (kept in sync by the map).
+ * No category strip here: every filter (amenities included) is in "Bộ lọc".
+ */
+import PublicLayout from '../layouts/PublicLayout.astro';
+import FilterButton from '../components/room/FilterButton.astro';
+import RoomFilters from '../components/room/RoomFilters.astro';
+import RoomMap from '../components/map/RoomMap.astro';
+import { padExtent, toMapPayload } from '../lib/map';
+import { countRooms, getAmenityOptions, getWardOptions, getMapExtent, getMapRooms } from '../lib/rooms';
+import { placeLabel } from '../lib/locations';
+import { setPublicCache } from '../lib/http-cache';
+import { isIndexableListing } from '../lib/seo';
+import { SITE_CITY, SITE_MAP_CENTER } from '../lib/site';
+import { parseMapBounds } from '../lib/validation/map-bounds';
+import { parseRoomFilters, roomFiltersToQuery } from '../lib/validation/room-filters';
+
+const filters = parseRoomFilters(Astro.url.searchParams);
+const bbox = parseMapBounds(Astro.url.searchParams);
+
+const [rooms, extent, total, wards, amenities] = await Promise.all([
+  getMapRooms(filters, bbox),
+  getMapExtent(filters),
+  countRooms(filters),
+  getWardOptions(),
+  getAmenityOptions(),
+]);
+const payload = toMapPayload(rooms);
+setPublicCache(Astro);
+
+const place = (filters.place && placeLabel(filters.place)) || SITE_CITY;
+// Area requests carry the filters but not the page number.
+const query = roomFiltersToQuery({ ...filters, page: 1 }).slice(1);
+---
+
+<PublicLayout
+  title={`Bản đồ phòng cho thuê ở ${place} | ${total} phòng đang trống`}
+  description={`Xem ${total} phòng trọ, studio và căn hộ đang trống ở ${place} trên bản đồ, kèm giá thuê. Kéo bản đồ để tìm phòng gần trường, chỗ làm hoặc biển.`}
+  wards={wards}
+  filters={filters}
+  footer={false}
+  chat={false}
+  canonical={`/ban-do${roomFiltersToQuery({ place: filters.place })}`}
+  noindex={Boolean(bbox) || !isIndexableListing(filters, total)}
+>
+  <div class="flex h-[calc(100dvh-4.5rem)] flex-col md:h-[calc(100dvh-5rem)]">
+    <RoomFilters filters={filters} wards={wards} amenities={amenities} total={total} basePath="/ban-do" />
+
+    <RoomMap
+      payload={payload}
+      view={bbox ?? (extent ? padExtent(extent) : undefined)}
+      viewFromUrl={Boolean(bbox)}
+      extent={extent ? padExtent(extent) : undefined}
+      center={SITE_MAP_CENTER}
+      query={query}
+    >
+      <FilterButton slot="list-actions" filters={filters} />
+      <FilterButton slot="map-actions" filters={filters} class="shadow-float" />
+    </RoomMap>
+  </div>
+</PublicLayout>

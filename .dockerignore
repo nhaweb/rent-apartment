@@ -1,0 +1,15 @@
+# Keep secrets, build output and local tooling out of the image.
+.env
+.env.*
+!.env.example
+node_modules
+dist
+.astro
+.vercel
+.git
+.github
+.idea
+.taste-skill
+test-fixtures
+assets-src
+*.log
