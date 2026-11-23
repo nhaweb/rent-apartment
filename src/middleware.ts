@@ -15,7 +15,7 @@ const NO_REFERRER_PATHS = new Set(['/dat-lai-mat-khau']);
  */
 function setSecurityHeaders(headers: Headers, pathname: string): void {
   headers.set('x-content-type-options', 'nosniff');
-  headers.set('x-frame-options', 'DENY');
+  // No X-Frame-Options / frame-ancestors: the site must be embeddable in an iframe on another website.
   // A route may set a stricter policy itself (`/phong/[id]/goi`, `/phong/[id]/zalo`: no-referrer).
   if (NO_REFERRER_PATHS.has(pathname)) headers.set('referrer-policy', 'no-referrer');
   else if (!headers.has('referrer-policy')) headers.set('referrer-policy', 'strict-origin-when-cross-origin');
