@@ -92,18 +92,7 @@ class RoomChat extends HTMLElement {
     this.submit = this.form.querySelector('button[type="submit"]')!;
 
     this.form.hidden = false;
-    const chips = this.querySelector<HTMLElement>('[data-chat-suggestions]')!;
-    chips.hidden = false;
-    // Mouse wheels scroll vertically; turn that into sideways scrolling of the chip row.
-    chips.addEventListener(
-      'wheel',
-      (event) => {
-        if (Math.abs(event.deltaY) <= Math.abs(event.deltaX) || chips.scrollWidth <= chips.clientWidth) return;
-        event.preventDefault();
-        chips.scrollLeft += event.deltaY;
-      },
-      { passive: false },
-    );
+    this.querySelector<HTMLElement>('[data-chat-suggestions]')!.hidden = false;
 
     this.form.addEventListener('submit', (event) => {
       event.preventDefault();
